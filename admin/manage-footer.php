@@ -546,14 +546,6 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : (isset($_POST['active_tab']) ?
                                         </div>
                                     </div>
                                     
-                                    <!-- WhatsApp Link -->
-                                    <div class="mb-4">
-                                        <label for="footer_whatsapp_link" class="block text-sm font-medium text-gray-700 mb-1">WhatsApp Link</label>
-                                        <input type="text" id="footer_whatsapp_link" name="footer_whatsapp_link" 
-                                               value="<?php echo htmlspecialchars($footer_settings['footer_whatsapp_link']); ?>"
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    </div>
-                                    
                                     <!-- Bulletin Settings -->
                                     <div class="mt-6 mb-4">
                                         <h3 class="text-base font-medium text-gray-800 mb-2">Bulletin Section</h3>

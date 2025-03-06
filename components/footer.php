@@ -287,14 +287,6 @@ echo $footer_css;
                                 <div id="validator-newsletter" class="form-result"></div>
                             </form>
                         </div>
-                        
-                        <?php if(!empty($footer_settings['footer_whatsapp_link'])): ?>
-                        <div class="mt-4">
-                            <a href="<?php echo htmlspecialchars($footer_settings['footer_whatsapp_link']); ?>" class="btn btn-light btn-sm">
-                                <i class='bx bxl-whatsapp'></i> WhatsApp Kami
-                            </a>
-                        </div>
-                        <?php endif; ?>
                     </div>
                 </div>
             </div>
