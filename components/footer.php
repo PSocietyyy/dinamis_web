@@ -12,9 +12,16 @@ $footer_settings = [
     'footer_company_phone' => '+62 877-3542-6107',
     'footer_company_email' => 'info@akademimerdeka.com',
     'footer_copyright_text' => 'Copyright © 2023 <a href="https://akademimerdeka.com/">Akademi Merdeka</a> as establisment date 2022',
-    'footer_bg_color' => '#343a40',
     'footer_text_color' => '#ffffff',
-    'footer_whatsapp_link' => 'https://wa.me/6287735426107'
+    'footer_whatsapp_link' => 'https://wa.me/6287735426107',
+    // Default gradient settings
+    'footer_gradient_direction' => 'to bottom',
+    'footer_gradient_start_color' => '#343a40',
+    'footer_gradient_end_color' => '#1a1e21',
+    // Default bulletin settings
+    'footer_bulletin_title' => 'Bulletin',
+    'footer_bulletin_description' => 'Informasi lain dapat diajukan kepada tim kami untuk ditindaklanjuti.',
+    'footer_newsletter_action' => ''
 ];
 
 try {
@@ -47,6 +54,15 @@ try {
         }
         $footer_links[$link['section']][] = $link;
     }
+} catch(PDOException $e) {
+    // If error, use empty array
+}
+
+// Get bulletin form fields
+$bulletin_fields = [];
+try {
+    $stmt = $conn->query("SELECT * FROM bulletin_fields WHERE is_active = 1 ORDER BY position");
+    $bulletin_fields = $stmt->fetchAll();
 } catch(PDOException $e) {
     // If error, use empty array
 }
@@ -84,11 +100,17 @@ try {
     ];
 }
 
+// Create gradient background
+$gradient_bg = "linear-gradient(" . 
+    $footer_settings['footer_gradient_direction'] . ", " . 
+    $footer_settings['footer_gradient_start_color'] . ", " . 
+    $footer_settings['footer_gradient_end_color'] . ")";
+
 // Custom CSS for footer colors
 $footer_css = "
 <style>
     .footer-area.footer-bg {
-        background-color: " . $footer_settings['footer_bg_color'] . ";
+        background-image: " . $gradient_bg . ";
         color: " . $footer_settings['footer_text_color'] . ";
     }
     .footer-widget h3 {
@@ -186,12 +208,82 @@ echo $footer_css;
                 
                 <div class="col-lg-3 col-sm-6">
                     <div class="footer-widget">
-                        <h3>Bulletin</h3>
-                        <p>Informasi lain dapat diajukan kepada tim kami untuk ditindaklanjuti.</p>
+                        <h3><?php echo htmlspecialchars($footer_settings['footer_bulletin_title']); ?></h3>
+                        <p><?php echo htmlspecialchars($footer_settings['footer_bulletin_description']); ?></p>
+                        
                         <div class="newsletter-area">
-                            <form class="newsletter-form" data-toggle="validator" method="POST">
+                            <form class="newsletter-form" data-toggle="validator" method="POST" 
+                                  action="<?php echo htmlspecialchars($footer_settings['footer_newsletter_action']); ?>">
+                                
+                                <?php 
+                                // Sort fields by position
+                                usort($bulletin_fields, function($a, $b) {
+                                    return $a['position'] <=> $b['position'];
+                                });
+                                
+                                // Display active form fields
+                                foreach($bulletin_fields as $field):
+                                    if(!$field['is_active']) continue;
+                                
+                                    // Generate the form fields based on type
+                                    if($field['field_type'] == 'email' && $field['field_name'] == 'email'):
+                                ?>
+                                    <input type="email" class="form-control" placeholder="<?php echo htmlspecialchars($field['placeholder']); ?>" 
+                                           name="<?php echo htmlspecialchars($field['field_name']); ?>" 
+                                           <?php echo $field['is_required'] ? 'required' : ''; ?> 
+                                           autocomplete="off">
+                                    <button class="subscribe-btn" type="submit"><i class='bx bx-paper-plane'></i></button>
+                                <?php 
+                                    elseif($field['field_type'] == 'checkbox'): 
+                                ?>
+                                    <div class="form-check mt-2">
+                                        <input type="checkbox" class="form-check-input" 
+                                               id="<?php echo htmlspecialchars($field['field_name']); ?>" 
+                                               name="<?php echo htmlspecialchars($field['field_name']); ?>"
+                                               <?php echo $field['is_required'] ? 'required' : ''; ?>>
+                                        <label class="form-check-label text-sm" for="<?php echo htmlspecialchars($field['field_name']); ?>">
+                                            <?php echo htmlspecialchars($field['field_label']); ?>
+                                        </label>
+                                    </div>
+                                <?php 
+                                    elseif($field['field_type'] == 'textarea'): 
+                                ?>
+                                    <div class="form-group mt-2">
+                                        <label for="<?php echo htmlspecialchars($field['field_name']); ?>" class="text-sm">
+                                            <?php echo htmlspecialchars($field['field_label']); ?>
+                                        </label>
+                                        <textarea class="form-control" 
+                                                  id="<?php echo htmlspecialchars($field['field_name']); ?>" 
+                                                  name="<?php echo htmlspecialchars($field['field_name']); ?>"
+                                                  placeholder="<?php echo htmlspecialchars($field['placeholder']); ?>" 
+                                                  rows="2"
+                                                  <?php echo $field['is_required'] ? 'required' : ''; ?>></textarea>
+                                    </div>
+                                <?php 
+                                    else: 
+                                ?>
+                                    <div class="form-group mt-2">
+                                        <label for="<?php echo htmlspecialchars($field['field_name']); ?>" class="text-sm">
+                                            <?php echo htmlspecialchars($field['field_label']); ?>
+                                        </label>
+                                        <input type="<?php echo htmlspecialchars($field['field_type']); ?>" 
+                                               class="form-control" 
+                                               id="<?php echo htmlspecialchars($field['field_name']); ?>" 
+                                               name="<?php echo htmlspecialchars($field['field_name']); ?>"
+                                               placeholder="<?php echo htmlspecialchars($field['placeholder']); ?>" 
+                                               <?php echo $field['is_required'] ? 'required' : ''; ?>>
+                                    </div>
+                                <?php 
+                                    endif;
+                                endforeach;
+                                
+                                // If no fields were added, show default email field
+                                if(empty($bulletin_fields)):
+                                ?>
                                 <input type="email" class="form-control" placeholder="Enter Your Email" name="EMAIL" required autocomplete="off">
                                 <button class="subscribe-btn" type="submit"><i class='bx bx-paper-plane'></i></button>
+                                <?php endif; ?>
+                                
                                 <div id="validator-newsletter" class="form-result"></div>
                             </form>
                         </div>

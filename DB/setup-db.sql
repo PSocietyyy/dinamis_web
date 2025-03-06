@@ -104,3 +104,41 @@ INSERT INTO footer_links (section, title, url, position, is_active) VALUES
 ('layanan', 'Pendampingan TKDA/TKBI', 'services/pendampingan-tkda', 5, 1),
 ('layanan', 'Konversi KTI', 'services/konversi-kti', 6, 1),
 ('layanan', 'Pembuatan Media Ajar', 'services/media-ajar', 7, 1);
+
+-- Add bulletin settings to site_settings
+INSERT INTO site_settings (setting_key, setting_value, setting_group) VALUES
+('footer_bulletin_title', 'Bulletin', 'footer'),
+('footer_bulletin_description', 'Informasi lain dapat diajukan kepada tim kami untuk ditindaklanjuti.', 'footer'),
+('footer_newsletter_action', '', 'footer'),
+('footer_gradient_direction', 'to bottom', 'footer'),
+('footer_gradient_start_color', '#343a40', 'footer'),
+('footer_gradient_end_color', '#1a1e21', 'footer');
+
+-- Create table for newsletter subscribers
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(100),
+    subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    ip_address VARCHAR(45),
+    user_agent TEXT
+);
+
+-- Create table for bulletin newsletter form fields
+CREATE TABLE IF NOT EXISTS bulletin_fields (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    field_name VARCHAR(50) NOT NULL,
+    field_label VARCHAR(100) NOT NULL,
+    field_type ENUM('text', 'email', 'textarea', 'select', 'checkbox') NOT NULL,
+    is_required BOOLEAN DEFAULT FALSE,
+    placeholder VARCHAR(255),
+    position INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Insert default email field
+INSERT INTO bulletin_fields (field_name, field_label, field_type, is_required, placeholder, position, is_active)
+VALUES ('email', 'Email', 'email', TRUE, 'Enter Your Email', 1, TRUE);

@@ -5,12 +5,6 @@
   // Start the session
   session_start();
   
-  // Check if already logged in
-  if(isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true) {
-    header("Location: admin/index.php");
-    exit;
-  }
-  
   // Login processing
   $error = "";
   if($_SERVER["REQUEST_METHOD"] == "POST") {

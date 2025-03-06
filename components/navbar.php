@@ -60,7 +60,6 @@ $navbar_css = "
     }
     .navbar-light .navbar-nav .nav-link.active {
         color: #4e73df;
-        font-weight: bold;
     }
 </style>
 ";
