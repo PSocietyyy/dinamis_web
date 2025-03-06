@@ -730,7 +730,7 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : (isset($_POST['active_tab']) ?
     </div>
     
     <!-- Delete Confirmation Modal -->
-    <div id="deleteModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+    <div id="deleteModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 items-center justify-center z-50">
         <div class="bg-white rounded-lg max-w-md w-full p-6">
             <div class="text-center">
                 <i class='bx bx-error-circle text-red-500 text-5xl mb-4'></i>
