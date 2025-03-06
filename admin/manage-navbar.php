@@ -15,6 +15,80 @@ require_once('../config.php');
 $message = '';
 $messageType = '';
 
+// Handle batch actions
+if (isset($_POST['batch_action']) && isset($_POST['selected_items']) && !empty($_POST['selected_items'])) {
+    $action = $_POST['batch_action'];
+    $items = explode(',', $_POST['selected_items']);
+    
+    if (!empty($items)) {
+        try {
+            $conn->beginTransaction();
+            
+            switch ($action) {
+                case 'activate':
+                    $stmt = $conn->prepare("UPDATE navbar_items SET is_active = 1 WHERE id IN (" . implode(',', array_fill(0, count($items), '?')) . ")");
+                    foreach ($items as $key => $id) {
+                        $stmt->bindValue($key + 1, $id);
+                    }
+                    $stmt->execute();
+                    $message = "Selected items activated successfully!";
+                    $messageType = "success";
+                    break;
+                    
+                case 'deactivate':
+                    $stmt = $conn->prepare("UPDATE navbar_items SET is_active = 0 WHERE id IN (" . implode(',', array_fill(0, count($items), '?')) . ")");
+                    foreach ($items as $key => $id) {
+                        $stmt->bindValue($key + 1, $id);
+                    }
+                    $stmt->execute();
+                    $message = "Selected items deactivated successfully!";
+                    $messageType = "success";
+                    break;
+                    
+                case 'delete':
+                    // Check if any of the items have children
+                    $hasChildrenIds = [];
+                    
+                    foreach ($items as $id) {
+                        $stmt = $conn->prepare("SELECT COUNT(*) FROM navbar_items WHERE parent_id = ?");
+                        $stmt->bindValue(1, $id);
+                        $stmt->execute();
+                        
+                        if ($stmt->fetchColumn() > 0) {
+                            $hasChildrenIds[] = $id;
+                        }
+                    }
+                    
+                    if (!empty($hasChildrenIds)) {
+                        // First delete child items for parents that have children
+                        $stmt = $conn->prepare("DELETE FROM navbar_items WHERE parent_id IN (" . implode(',', array_fill(0, count($hasChildrenIds), '?')) . ")");
+                        foreach ($hasChildrenIds as $key => $id) {
+                            $stmt->bindValue($key + 1, $id);
+                        }
+                        $stmt->execute();
+                    }
+                    
+                    // Then delete the selected items
+                    $stmt = $conn->prepare("DELETE FROM navbar_items WHERE id IN (" . implode(',', array_fill(0, count($items), '?')) . ")");
+                    foreach ($items as $key => $id) {
+                        $stmt->bindValue($key + 1, $id);
+                    }
+                    $stmt->execute();
+                    
+                    $message = "Selected items deleted successfully!";
+                    $messageType = "success";
+                    break;
+            }
+            
+            $conn->commit();
+        } catch(PDOException $e) {
+            $conn->rollBack();
+            $message = "Error processing batch action: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+}
+
 // Handle navbar settings update
 if(isset($_POST['update_navbar'])) {
     // Get form data
@@ -489,6 +563,33 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : (isset($_POST['active_tab']) ?
                     </div>
                     
                     <div class="lg:col-span-2">
+                        <!-- Batch Actions -->
+                        <div class="bg-white rounded-lg shadow overflow-hidden mb-4">
+                            <div class="p-4 border-b border-gray-200">
+                                <h3 class="text-base font-semibold text-gray-800">Batch Actions</h3>
+                            </div>
+                            <div class="p-4">
+                                <form method="POST" action="" id="batchForm">
+                                    <input type="hidden" name="active_tab" value="menu_items">
+                                    <input type="hidden" name="batch_action" id="batchActionType" value="">
+                                    <input type="hidden" name="selected_items" id="selectedItems" value="">
+                                    
+                                    <div class="flex items-center space-x-4">
+                                        <label class="text-sm text-gray-700">With selected:</label>
+                                        <button type="button" onclick="submitBatchAction('activate')" class="px-3 py-1.5 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors">
+                                            <i class='bx bx-check-circle'></i> Activate
+                                        </button>
+                                        <button type="button" onclick="submitBatchAction('deactivate')" class="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-md hover:bg-yellow-200 transition-colors">
+                                            <i class='bx bx-x-circle'></i> Deactivate
+                                        </button>
+                                        <button type="button" onclick="confirmBatchDelete()" class="px-3 py-1.5 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors">
+                                            <i class='bx bx-trash'></i> Delete
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
                         <div class="bg-white rounded-lg shadow overflow-hidden">
                             <div class="p-6">
                                 <h2 class="text-lg font-semibold text-gray-800 mb-4">Menu Structure</h2>
@@ -505,16 +606,22 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : (isset($_POST['active_tab']) ?
                                 <table class="min-w-full divide-y divide-gray-200">
                                     <thead class="bg-gray-50">
                                         <tr>
+                                            <th scope="col" class="px-4 py-3 text-center">
+                                                <input type="checkbox" id="selectAll" class="form-checkbox h-4 w-4 text-blue-600 rounded">
+                                            </th>
                                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
                                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
                                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
                                         <?php foreach($menu_hierarchy as $parent): ?>
-                                        <tr class="bg-gray-50">
+                                        <tr class="bg-gray-50 hover:bg-gray-100 transition-colors <?php echo (isset($_GET['edit_item']) && $_GET['edit_item'] == $parent['id']) ? 'bg-blue-50' : ''; ?>">
+                                            <td class="px-4 py-4 text-center">
+                                                <input type="checkbox" name="menu_item[]" value="<?php echo $parent['id']; ?>" class="form-checkbox h-4 w-4 text-blue-600 rounded menu-item-checkbox">
+                                            </td>
                                             <td class="px-6 py-4 whitespace-nowrap font-medium">
                                                 <?php echo htmlspecialchars($parent['title']); ?>
                                             </td>
@@ -535,21 +642,27 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : (isset($_POST['active_tab']) ?
                                                 </span>
                                                 <?php endif; ?>
                                             </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <a href="?tab=menu_items&edit_item=<?php echo $parent['id']; ?>" class="text-blue-600 hover:text-blue-900 mr-3">
-                                                    <i class='bx bx-edit'></i> Edit
-                                                </a>
-                                                <a href="?tab=menu_items&delete_item=<?php echo $parent['id']; ?>" 
-                                                   onclick="return confirm('Are you sure you want to delete this menu item? This will also remove all child items.')" 
-                                                   class="text-red-600 hover:text-red-900">
-                                                    <i class='bx bx-trash'></i> Delete
-                                                </a>
+                                            <td class="px-6 py-4 whitespace-nowrap text-center">
+                                                <div class="flex justify-center space-x-3">
+                                                    <a href="?tab=menu_items&edit_item=<?php echo $parent['id']; ?>" 
+                                                       class="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors">
+                                                        <i class='bx bx-edit'></i> Edit
+                                                    </a>
+                                                    <button type="button" 
+                                                            onclick="confirmDelete(<?php echo $parent['id']; ?>, '<?php echo htmlspecialchars(addslashes($parent['title'])); ?>', <?php echo !empty($parent['children']) ? 'true' : 'false'; ?>)"
+                                                            class="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors">
+                                                        <i class='bx bx-trash'></i> Delete
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                         
                                         <?php if(!empty($parent['children'])): ?>
                                             <?php foreach($parent['children'] as $child): ?>
-                                            <tr>
+                                            <tr class="hover:bg-gray-100 transition-colors <?php echo (isset($_GET['edit_item']) && $_GET['edit_item'] == $child['id']) ? 'bg-blue-50' : ''; ?>">
+                                                <td class="px-4 py-4 text-center">
+                                                    <input type="checkbox" name="menu_item[]" value="<?php echo $child['id']; ?>" class="form-checkbox h-4 w-4 text-blue-600 rounded menu-item-checkbox">
+                                                </td>
                                                 <td class="px-6 py-4 whitespace-nowrap pl-12">
                                                     <i class='bx bx-subdirectory-right mr-2 text-gray-400'></i>
                                                     <?php echo htmlspecialchars($child['title']); ?>
@@ -571,15 +684,18 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : (isset($_POST['active_tab']) ?
                                                     </span>
                                                     <?php endif; ?>
                                                 </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <a href="?tab=menu_items&edit_item=<?php echo $child['id']; ?>" class="text-blue-600 hover:text-blue-900 mr-3">
-                                                        <i class='bx bx-edit'></i> Edit
-                                                    </a>
-                                                    <a href="?tab=menu_items&delete_item=<?php echo $child['id']; ?>" 
-                                                       onclick="return confirm('Are you sure you want to delete this menu item?')" 
-                                                       class="text-red-600 hover:text-red-900">
-                                                        <i class='bx bx-trash'></i> Delete
-                                                    </a>
+                                                <td class="px-6 py-4 whitespace-nowrap text-center">
+                                                    <div class="flex justify-center space-x-3">
+                                                        <a href="?tab=menu_items&edit_item=<?php echo $child['id']; ?>" 
+                                                           class="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors">
+                                                            <i class='bx bx-edit'></i> Edit
+                                                        </a>
+                                                        <button type="button"
+                                                                onclick="confirmDelete(<?php echo $child['id']; ?>, '<?php echo htmlspecialchars(addslashes($child['title'])); ?>', false)"
+                                                                class="px-3 py-1 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors">
+                                                            <i class='bx bx-trash'></i> Delete
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                             <?php endforeach; ?>
@@ -613,8 +729,29 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : (isset($_POST['active_tab']) ?
         </div>
     </div>
     
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="hidden fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg max-w-md w-full p-6">
+            <div class="text-center">
+                <i class='bx bx-error-circle text-red-500 text-5xl mb-4'></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">Confirm Deletion</h3>
+                <p class="text-sm text-gray-500 mb-4" id="deleteMessage">
+                    Are you sure you want to delete this menu item?
+                </p>
+                <div class="flex justify-center space-x-4">
+                    <button type="button" id="cancelDelete" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors">
+                        Cancel
+                    </button>
+                    <a href="#" id="confirmDeleteBtn" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
+                        Yes, Delete
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <script>
-        // Update color preview on input
+        // Color picker functionality
         document.getElementById('navbar_bg_color')?.addEventListener('input', function() {
             this.nextElementSibling.style.backgroundColor = this.value;
         });
@@ -622,6 +759,71 @@ $activeTab = isset($_GET['tab']) ? $_GET['tab'] : (isset($_POST['active_tab']) ?
         document.getElementById('navbar_text_color')?.addEventListener('input', function() {
             this.nextElementSibling.style.backgroundColor = this.value;
         });
+        
+        // Delete confirmation modal
+        function confirmDelete(id, title, hasChildren) {
+            const modal = document.getElementById('deleteModal');
+            const message = document.getElementById('deleteMessage');
+            const confirmBtn = document.getElementById('confirmDeleteBtn');
+            
+            // Set the message based on whether the item has children
+            if (hasChildren) {
+                message.innerHTML = `Are you sure you want to delete <strong>${title}</strong>?<br><br>This will also remove all child menu items.`;
+            } else {
+                message.innerHTML = `Are you sure you want to delete <strong>${title}</strong>?`;
+            }
+            
+            // Set the confirmation button link
+            confirmBtn.href = `?tab=menu_items&delete_item=${id}`;
+            
+            // Show the modal
+            modal.classList.remove('hidden');
+            
+            // Set up event listener for the cancel button
+            document.getElementById('cancelDelete').addEventListener('click', function() {
+                modal.classList.add('hidden');
+            });
+            
+            // Close modal when clicking outside
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                }
+            });
+        }
+        
+        // Batch actions and select all functionality
+        document.getElementById('selectAll')?.addEventListener('change', function() {
+            const checkboxes = document.querySelectorAll('.menu-item-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = this.checked;
+            });
+        });
+        
+        function submitBatchAction(action) {
+            const selectedCheckboxes = document.querySelectorAll('.menu-item-checkbox:checked');
+            if (selectedCheckboxes.length === 0) {
+                alert('Please select at least one menu item.');
+                return;
+            }
+            
+            const selectedIds = Array.from(selectedCheckboxes).map(checkbox => checkbox.value);
+            document.getElementById('batchActionType').value = action;
+            document.getElementById('selectedItems').value = selectedIds.join(',');
+            document.getElementById('batchForm').submit();
+        }
+        
+        function confirmBatchDelete() {
+            const selectedCheckboxes = document.querySelectorAll('.menu-item-checkbox:checked');
+            if (selectedCheckboxes.length === 0) {
+                alert('Please select at least one menu item.');
+                return;
+            }
+            
+            if (confirm(`Are you sure you want to delete ${selectedCheckboxes.length} menu item(s)?`)) {
+                submitBatchAction('delete');
+            }
+        }
     </script>
 </body>
 </html>

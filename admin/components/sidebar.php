@@ -1,36 +1,52 @@
 <?php
 // Current page for highlighting active link
 $current_page = basename($_SERVER['PHP_SELF']);
+$current_dir = dirname($_SERVER['PHP_SELF']);
+
+// Determine if we're in a subdirectory of admin
+$is_in_subdirectory = (strpos($current_dir, '/admin/') !== false && $current_dir !== '/admin');
+
+// Set paths accordingly
+$root_path = $is_in_subdirectory ? '../' : '';
+$pages_path = $is_in_subdirectory ? './' : 'pages/';
+
+// Get the base URL
+$base_url = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
+$base_url .= "://" . $_SERVER['HTTP_HOST'];
+$admin_url = $base_url . dirname($_SERVER['PHP_SELF']);
+if ($is_in_subdirectory) {
+    $admin_url = dirname($admin_url);
+}
 ?>
 
 <div class="fixed inset-y-0 left-0 z-30 w-64 bg-purple-950 text-white transform transition-transform duration-300 lg:translate-x-0 shadow-lg" id="sidebar">
     <div class="flex items-center justify-center h-16 border-b border-purple-500/30">
         <div class="flex items-center px-4">
-            <img src="../assets/images/logos/logo-2.png" alt="Logo" class="w-8 h-8">
+            <img src="<?php echo $root_path; ?>../assets/images/logos/logo-2.png" alt="Logo" class="w-8 h-8">
             <span class="ml-3 text-lg font-semibold">Akademi Merdeka</span>
         </div>
     </div>
     
     <div class="flex flex-col h-[calc(100%-4rem)] justify-between">
         <nav class="mt-5 px-2">
-            <a href="index.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'index.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
+            <a href="<?php echo $root_path; ?>index.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'index.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-dashboard text-xl mr-3'></i>
                 <span>Dashboard</span>
             </a>
             
-            <a href="manage-navbar.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-navbar.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
+            <a href="<?php echo $root_path; ?>manage-navbar.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-navbar.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-navigation text-xl mr-3'></i>
                 <span>Navbar</span>
             </a>
             
-            <a href="manage-footer.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-components.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
+            <a href="<?php echo $root_path; ?>manage-footer.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-footer.php' || $current_page == 'manage-components.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-layout text-xl mr-3'></i>
                 <span>Footer</span>
             </a>
             
             <div class="px-3 py-2 mt-4 text-xs uppercase text-blue-200 font-semibold">Content</div>
             
-            <a href="./pages/index.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all">
+            <a href="<?php echo $pages_path; ?>manage-pages.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-pages.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-file text-xl mr-3'></i>
                 <span>Pages</span>
             </a>
@@ -44,10 +60,17 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class='bx bxs-server text-xl mr-3'></i>
                 <span>Services</span>
             </a>
+            
+            <div class="px-3 py-2 mt-4 text-xs uppercase text-blue-200 font-semibold">Users</div>
+            
+            <a href="<?php echo $root_path; ?>manage-users.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-users.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
+                <i class='bx bxs-user-account text-xl mr-3'></i>
+                <span>Users</span>
+            </a>
         </nav>
         
         <div class="mb-8 px-4">
-            <a href="logout.php" class="flex items-center px-4 py-3 text-white bg-red-500/20 hover:bg-red-500/40 rounded-lg transition-all">
+            <a href="<?php echo $root_path; ?>logout.php" class="flex items-center px-4 py-3 text-white bg-red-500/20 hover:bg-red-500/40 rounded-lg transition-all">
                 <i class='bx bx-log-out text-xl mr-3'></i>
                 <span>Logout</span>
             </a>

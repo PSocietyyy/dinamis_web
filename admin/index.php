@@ -11,48 +11,108 @@ if(!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 // Include database connection
 require_once('../config.php');
 
-// Get database stats
-$stats = [
-    'total_users' => 0,
-    'total_pages' => 0,
-    'total_posts' => 0,
-    'total_services' => 0
-];
+// Initialize variables
+$message = '';
+$messageType = '';
+$currentUsername = $_SESSION['username'] ?? 'Admin';
+$userId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$userData = null;
 
-try {
-    // Count users
-    $stmt = $conn->query("SELECT COUNT(*) FROM users");
-    $stats['total_users'] = $stmt->fetchColumn();
+// Handle form submission for password update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
+    $newUsername = trim($_POST['username']);
+    $newPassword = trim($_POST['password']);
+    $confirmPassword = trim($_POST['confirm_password']);
+    $userId = (int)$_POST['user_id'];
     
-    // Count navbar items (as pages)
-    $stmt = $conn->query("SELECT COUNT(*) FROM navbar_items");
-    $stats['total_pages'] = $stmt->fetchColumn();
-    
-    // Get posts count if table exists
-    try {
-        $stmt = $conn->query("SELECT COUNT(*) FROM posts");
-        $stats['total_posts'] = $stmt->fetchColumn();
-    } catch(PDOException $e) {
-        // Posts table doesn't exist
+    // Basic validation
+    if (empty($newUsername)) {
+        $message = "Username cannot be empty.";
+        $messageType = "error";
+    } elseif (!empty($newPassword) && $newPassword !== $confirmPassword) {
+        $message = "Passwords do not match.";
+        $messageType = "error";
+    } else {
+        try {
+            // Begin transaction
+            $conn->beginTransaction();
+            
+            // Check if username exists for another user
+            if (!empty($newUsername)) {
+                $stmt = $conn->prepare("SELECT COUNT(*) FROM users WHERE username = :username AND id != :id");
+                $stmt->bindParam(':username', $newUsername);
+                $stmt->bindParam(':id', $userId);
+                $stmt->execute();
+                
+                if ($stmt->fetchColumn() > 0) {
+                    $message = "Username already exists. Please choose another username.";
+                    $messageType = "error";
+                    $conn->rollBack();
+                } else {
+                    // Update username
+                    $stmt = $conn->prepare("UPDATE users SET username = :username WHERE id = :id");
+                    $stmt->bindParam(':username', $newUsername);
+                    $stmt->bindParam(':id', $userId);
+                    $stmt->execute();
+                    
+                    // Update password if provided
+                    if (!empty($newPassword)) {
+                        // Hash password
+                        $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+                        
+                        // Update password
+                        $stmt = $conn->prepare("UPDATE users SET password = :password WHERE id = :id");
+                        $stmt->bindParam(':password', $hashedPassword);
+                        $stmt->bindParam(':id', $userId);
+                        $stmt->execute();
+                    }
+                    
+                    $conn->commit();
+                    $message = "User updated successfully!";
+                    $messageType = "success";
+                    
+                    // Update session if current user is being edited
+                    if ($_SESSION['user_id'] == $userId) {
+                        $_SESSION['username'] = $newUsername;
+                    }
+                }
+            }
+        } catch(PDOException $e) {
+            $conn->rollBack();
+            $message = "Error updating user: " . $e->getMessage();
+            $messageType = "error";
+        }
     }
-    
-    // Count footer links (as services)
-    $stmt = $conn->query("SELECT COUNT(*) FROM footer_links WHERE section = 'layanan'");
-    $stats['total_services'] = $stmt->fetchColumn();
-} catch(PDOException $e) {
-    // Error getting stats
 }
 
-// Get recent activity (example data)
-$recent_activity = [
-    ['type' => 'update', 'item' => 'Navbar Settings', 'user' => 'Admin', 'time' => '2 hours ago'],
-    ['type' => 'create', 'item' => 'New Footer Link', 'user' => 'Admin', 'time' => '1 day ago'],
-    ['type' => 'delete', 'item' => 'Old Post', 'user' => 'Editor', 'time' => '3 days ago'],
-    ['type' => 'update', 'item' => 'Service Page', 'user' => 'Admin', 'time' => '5 days ago'],
-];
+// Get all users
+$users = [];
+try {
+    $stmt = $conn->query("SELECT id, username, role, created_at FROM users ORDER BY id");
+    $users = $stmt->fetchAll();
+} catch(PDOException $e) {
+    $message = "Error fetching users: " . $e->getMessage();
+    $messageType = "error";
+}
 
-// Get username
-$username = $_SESSION['username'] ?? 'Admin';
+// Get specific user data if ID is provided
+if ($userId > 0) {
+    try {
+        $stmt = $conn->prepare("SELECT id, username, role, created_at FROM users WHERE id = :id");
+        $stmt->bindParam(':id', $userId);
+        $stmt->execute();
+        
+        if ($stmt->rowCount() > 0) {
+            $userData = $stmt->fetch();
+        } else {
+            $message = "User not found.";
+            $messageType = "error";
+        }
+    } catch(PDOException $e) {
+        $message = "Error fetching user data: " . $e->getMessage();
+        $messageType = "error";
+    }
+}
 ?>
 
 <!doctype html>
@@ -60,13 +120,11 @@ $username = $_SESSION['username'] ?? 'Admin';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard - Akademi Merdeka</title>
+    <title>User Management - Akademi Merdeka</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Boxicons -->
     <link rel="stylesheet" href="../assets/css/boxicons.min.css">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- Custom Tailwind Config -->
     <script>
         tailwind.config = {
@@ -93,12 +151,9 @@ $username = $_SESSION['username'] ?? 'Admin';
 </head>
 <body class="bg-gray-50">
     <div class="min-h-screen flex flex-col lg:flex-row">
-        <!-- Sidebar Component -->
         <?php include('components/sidebar.php'); ?>
         
-        <!-- Main Content -->
         <div class="flex-1 lg:ml-64">
-            <!-- Top Bar -->
             <div class="bg-white p-4 shadow flex justify-between items-center">
                 <h1 class="text-xl font-semibold text-gray-800">Dashboard</h1>
                 <div class="flex items-center space-x-4">
@@ -109,199 +164,175 @@ $username = $_SESSION['username'] ?? 'Admin';
                         </button>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($username); ?></span>
+                        <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($currentUsername); ?></span>
                         <img class="w-8 h-8 rounded-full" src="../assets/images/team/pp-1.png" alt="Profile">
                     </div>
                 </div>
             </div>
             
-            <!-- Dashboard Content -->
+            <!-- User Management Content -->
             <div class="p-6">
-                <!-- Welcome Card -->
-                <div class="bg-gradient-to-r from-blue-500 to-blue-700 rounded-lg shadow-md mb-6 text-white">
-                    <div class="p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <h2 class="text-2xl font-bold mb-1">Welcome back, <?php echo htmlspecialchars($username); ?>!</h2>
-                                <p class="text-blue-100">Here's what's happening with your website today.</p>
-                            </div>
-                            <div class="hidden md:block">
-                                <img src="../assets/images/logos/logo-2.png" alt="Logo" class="h-16">
-                            </div>
-                        </div>
-                        
-                        <div class="mt-6">
-                            <a href="#" class="inline-flex items-center px-4 py-2 bg-white text-blue-600 rounded-lg shadow-sm hover:bg-blue-50 transition-colors">
-                                <i class='bx bx-refresh mr-2'></i> Refresh Data
-                            </a>
-                        </div>
-                    </div>
+                <?php if(!empty($message)): ?>
+                <div class="mb-6 p-4 rounded-lg <?php echo $messageType === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'; ?>">
+                    <?php echo $message; ?>
                 </div>
+                <?php endif; ?>
                 
-                <!-- Stats Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-                    <div class="bg-white rounded-lg shadow-md p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-gray-500 text-sm">Users</p>
-                                <h3 class="text-2xl font-bold text-gray-800"><?php echo $stats['total_users']; ?></h3>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- User List -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-lg font-semibold text-gray-800">User Accounts</h2>
+                                <p class="text-sm text-gray-500 mt-1">Select a user to edit their username and password</p>
                             </div>
-                            <div class="bg-blue-100 p-3 rounded-full">
-                                <i class='bx bx-user text-xl text-blue-600'></i>
-                            </div>
-                        </div>
-                        <div class="mt-4">
-                            <div class="flex items-center text-green-500 text-sm">
-                                <i class='bx bx-up-arrow-alt'></i>
-                                <span class="ml-1">Active</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white rounded-lg shadow-md p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-gray-500 text-sm">Pages</p>
-                                <h3 class="text-2xl font-bold text-gray-800"><?php echo $stats['total_pages']; ?></h3>
-                            </div>
-                            <div class="bg-purple-100 p-3 rounded-full">
-                                <i class='bx bx-file text-xl text-purple-600'></i>
-                            </div>
-                        </div>
-                        <div class="mt-4">
-                            <div class="flex items-center text-gray-500 text-sm">
-                                <i class='bx bx-right-arrow-alt'></i>
-                                <span class="ml-1">Stable</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white rounded-lg shadow-md p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-gray-500 text-sm">Blog Posts</p>
-                                <h3 class="text-2xl font-bold text-gray-800"><?php echo $stats['total_posts']; ?></h3>
-                            </div>
-                            <div class="bg-yellow-100 p-3 rounded-full">
-                                <i class='bx bx-news text-xl text-yellow-600'></i>
-                            </div>
-                        </div>
-                        <div class="mt-4">
-                            <div class="flex items-center text-green-500 text-sm">
-                                <i class='bx bx-up-arrow-alt'></i>
-                                <span class="ml-1">Growing</span>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white rounded-lg shadow-md p-6">
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <p class="text-gray-500 text-sm">Services</p>
-                                <h3 class="text-2xl font-bold text-gray-800"><?php echo $stats['total_services']; ?></h3>
-                            </div>
-                            <div class="bg-green-100 p-3 rounded-full">
-                                <i class='bx bx-server text-xl text-green-600'></i>
-                            </div>
-                        </div>
-                        <div class="mt-4">
-                            <div class="flex items-center text-red-500 text-sm">
-                                <i class='bx bx-down-arrow-alt'></i>
-                                <span class="ml-1">Needs update</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Charts and Activity -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-                    <!-- Traffic Chart -->
-                    <div class="bg-white rounded-lg shadow-md lg:col-span-2">
-                        <div class="p-6">
-                            <div class="flex items-center justify-between mb-4">
-                                <h3 class="text-lg font-semibold text-gray-800">Website Traffic</h3>
-                                <div class="flex items-center space-x-2">
-                                    <button class="px-3 py-1 bg-blue-50 text-blue-600 rounded-md text-sm">Monthly</button>
-                                    <button class="px-3 py-1 text-gray-600 rounded-md text-sm">Weekly</button>
-                                </div>
-                            </div>
-                            <div>
-                                <canvas id="trafficChart" height="200"></canvas>
+                            
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <?php if(empty($users)): ?>
+                                        <tr>
+                                            <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">No users found</td>
+                                        </tr>
+                                        <?php else: ?>
+                                            <?php foreach($users as $user): ?>
+                                            <tr class="<?php echo $userId == $user['id'] ? 'bg-blue-50' : ''; ?>">
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo $user['id']; ?></td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <div class="flex items-center">
+                                                        <div class="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                                            <span class="text-blue-600"><?php echo strtoupper(substr($user['username'], 0, 1)); ?></span>
+                                                        </div>
+                                                        <div class="ml-4">
+                                                            <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($user['username']); ?></div>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap">
+                                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $user['role'] === 'admin' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'; ?>">
+                                                        <?php echo ucfirst(htmlspecialchars($user['role'])); ?>
+                                                    </span>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <?php echo date('M d, Y', strtotime($user['created_at'])); ?>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                    <a href="?id=<?php echo $user['id']; ?>" class="text-blue-600 hover:text-blue-900">
+                                                        Edit
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Recent Activity -->
-                    <div class="bg-white rounded-lg shadow-md">
-                        <div class="p-6">
-                            <h3 class="text-lg font-semibold text-gray-800 mb-4">Recent Activity</h3>
-                            <div class="space-y-4">
-                                <?php foreach($recent_activity as $activity): ?>
-                                <div class="flex items-start">
-                                    <?php if($activity['type'] == 'update'): ?>
-                                        <div class="bg-blue-100 p-2 rounded-full mr-4">
-                                            <i class='bx bx-edit text-blue-600'></i>
+                    <!-- Edit User Form -->
+                    <div class="lg:col-span-1">
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-lg font-semibold text-gray-800">
+                                    <?php echo $userData ? 'Edit User' : 'Select User'; ?>
+                                </h2>
+                            </div>
+                            
+                            <?php if($userData): ?>
+                            <div class="p-6">
+                                <form method="POST" action="">
+                                    <input type="hidden" name="user_id" value="<?php echo $userData['id']; ?>">
+                                    
+                                    <div class="mb-4">
+                                        <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                                        <input type="text" id="username" name="username" 
+                                               value="<?php echo htmlspecialchars($userData['username']); ?>"
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                                        <input type="password" id="password" name="password" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <p class="mt-1 text-xs text-gray-500">Leave blank to keep current password</p>
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <label for="confirm_password" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
+                                        <input type="password" id="confirm_password" name="confirm_password" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                                        <div class="bg-gray-100 px-3 py-2 rounded-md">
+                                            <span class="text-gray-800">
+                                                <?php echo ucfirst(htmlspecialchars($userData['role'])); ?>
+                                            </span>
+                                            <p class="mt-1 text-xs text-gray-500">Role cannot be changed here</p>
                                         </div>
-                                    <?php elseif($activity['type'] == 'create'): ?>
-                                        <div class="bg-green-100 p-2 rounded-full mr-4">
-                                            <i class='bx bx-plus text-green-600'></i>
+                                    </div>
+                                    
+                                    <div class="mt-6">
+                                        <button type="submit" name="update_user" class="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            Update User
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                            <?php else: ?>
+                            <div class="p-6">
+                                <div class="bg-blue-50 p-4 rounded-lg">
+                                    <div class="flex">
+                                        <div class="flex-shrink-0">
+                                            <i class="bx bx-info-circle text-blue-600 text-xl"></i>
                                         </div>
-                                    <?php elseif($activity['type'] == 'delete'): ?>
-                                        <div class="bg-red-100 p-2 rounded-full mr-4">
-                                            <i class='bx bx-trash text-red-600'></i>
+                                        <div class="ml-3">
+                                            <h3 class="text-sm font-medium text-blue-800">No user selected</h3>
+                                            <div class="mt-2 text-sm text-blue-700">
+                                                <p>Please select a user from the list to edit their details.</p>
+                                            </div>
                                         </div>
-                                    <?php endif; ?>
-                                    <div>
-                                        <p class="text-gray-800 font-medium"><?php echo htmlspecialchars($activity['item']); ?></p>
-                                        <p class="text-gray-500 text-sm">
-                                            <?php echo htmlspecialchars($activity['user']); ?> • 
-                                            <span><?php echo htmlspecialchars($activity['time']); ?></span>
-                                        </p>
                                     </div>
                                 </div>
-                                <?php endforeach; ?>
                             </div>
-                            <div class="mt-4 text-center">
-                                <a href="#" class="text-blue-600 hover:underline text-sm">View All Activity</a>
+                            <?php endif; ?>
+                        </div>
+                        
+                        <!-- Password Guidelines -->
+                        <div class="mt-6 bg-white rounded-lg shadow-md overflow-hidden">
+                            <div class="p-6">
+                                <h3 class="text-base font-semibold text-gray-800 mb-2">Password Guidelines</h3>
+                                <ul class="space-y-2 text-sm text-gray-600">
+                                    <li class="flex items-start">
+                                        <i class="bx bx-check-circle text-green-500 mt-0.5 mr-2"></i>
+                                        <span>Use at least 8 characters</span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="bx bx-check-circle text-green-500 mt-0.5 mr-2"></i>
+                                        <span>Include uppercase and lowercase letters</span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="bx bx-check-circle text-green-500 mt-0.5 mr-2"></i>
+                                        <span>Include at least one number</span>
+                                    </li>
+                                    <li class="flex items-start">
+                                        <i class="bx bx-check-circle text-green-500 mt-0.5 mr-2"></i>
+                                        <span>Include at least one special character</span>
+                                    </li>
+                                </ul>
                             </div>
                         </div>
-                    </div>
-                </div>
-                
-                <!-- Quick Actions -->
-                <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        <a href="manage-navbar.php" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <div class="bg-blue-100 p-3 rounded-full mb-2">
-                                <i class='bx bx-navigation text-xl text-blue-600'></i>
-                            </div>
-                            <span class="text-sm text-gray-700">Edit Navbar</span>
-                        </a>
-                        <a href="manage-components.php" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <div class="bg-purple-100 p-3 rounded-full mb-2">
-                                <i class='bx bx-layout text-xl text-purple-600'></i>
-                            </div>
-                            <span class="text-sm text-gray-700">Edit Footer</span>
-                        </a>
-                        <a href="#" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <div class="bg-green-100 p-3 rounded-full mb-2">
-                                <i class='bx bx-edit text-xl text-green-600'></i>
-                            </div>
-                            <span class="text-sm text-gray-700">New Post</span>
-                        </a>
-                        <a href="#" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <div class="bg-yellow-100 p-3 rounded-full mb-2">
-                                <i class='bx bx-user-plus text-xl text-yellow-600'></i>
-                            </div>
-                            <span class="text-sm text-gray-700">Add User</span>
-                        </a>
-                        <a href="#" class="flex flex-col items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                            <div class="bg-red-100 p-3 rounded-full mb-2">
-                                <i class='bx bx-cog text-xl text-red-600'></i>
-                            </div>
-                            <span class="text-sm text-gray-700">Settings</span>
-                        </a>
                     </div>
                 </div>
                 
@@ -314,46 +345,31 @@ $username = $_SESSION['username'] ?? 'Admin';
     </div>
     
     <script>
-        // Traffic chart
-        const trafficCtx = document.getElementById('trafficChart').getContext('2d');
-        new Chart(trafficCtx, {
-            type: 'line',
-            data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-                datasets: [{
-                    label: 'Visitors',
-                    data: [1500, 1800, 2100, 1900, 2400, 2800, 3200, 3500, 3800, 4100, 4300, 4600],
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    borderColor: 'rgba(59, 130, 246, 1)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: false
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            display: true,
-                            color: 'rgba(0, 0, 0, 0.05)'
-                        }
-                    },
-                    x: {
-                        grid: {
-                            display: false
-                        }
-                    }
+        // Password validation
+        const passwordInput = document.getElementById('password');
+        const confirmPasswordInput = document.getElementById('confirm_password');
+        
+        // Add event listener to confirm password field to check if passwords match
+        if (confirmPasswordInput) {
+            confirmPasswordInput.addEventListener('input', function() {
+                if (passwordInput.value !== this.value) {
+                    this.setCustomValidity('Passwords do not match');
+                } else {
+                    this.setCustomValidity('');
                 }
-            }
-        });
+            });
+        }
+        
+        // Check password match on password field change too
+        if (passwordInput) {
+            passwordInput.addEventListener('input', function() {
+                if (confirmPasswordInput.value && confirmPasswordInput.value !== this.value) {
+                    confirmPasswordInput.setCustomValidity('Passwords do not match');
+                } else {
+                    confirmPasswordInput.setCustomValidity('');
+                }
+            });
+        }
     </script>
 </body>
 </html>
