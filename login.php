@@ -2,6 +2,9 @@
 <html lang="id">
   <?php
   include('components/head.php');
+  // Include database connection
+  require_once('./config.php');
+  
   // Start the session
   session_start();
   
@@ -11,14 +14,52 @@
     $username = $_POST['username'];
     $password = $_POST['password'];
     
-    // Simple validation for demonstration
-    if($username === 'admin' && $password === 'admin123') {
-      $_SESSION['logged_in'] = true;
-      $_SESSION['username'] = $username;
-      header("Location: admin/index.php");
-      exit;
-    } else {
-      $error = "Username atau password salah!";
+    try {
+      // Query to find the user
+      $stmt = $conn->prepare("SELECT * FROM users WHERE username = :username");
+      $stmt->bindParam(':username', $username);
+      $stmt->execute();
+      
+      // Check if user exists
+      if($stmt->rowCount() > 0) {
+        $user = $stmt->fetch();
+        
+        // Check password - handles both hashed and non-hashed passwords
+        if(password_verify($password, $user['password'])) {
+          // Password is hashed and verified
+          $passwordIsValid = true;
+        } else if($password === $user['password']) {
+          // Legacy password (not hashed)
+          $passwordIsValid = true;
+          
+          // Upgrade to a hashed password for better security
+          $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+          $updateStmt = $conn->prepare("UPDATE users SET password = :password WHERE id = :id");
+          $updateStmt->bindParam(':password', $hashedPassword);
+          $updateStmt->bindParam(':id', $user['id']);
+          $updateStmt->execute();
+        } else {
+          $passwordIsValid = false;
+        }
+        
+        if($passwordIsValid) {
+          // Set session variables
+          $_SESSION['logged_in'] = true;
+          $_SESSION['username'] = $user['username'];
+          $_SESSION['user_id'] = $user['id'];
+          $_SESSION['role'] = $user['role'];
+          
+          // Redirect to admin page
+          header("Location: admin/index.php");
+          exit;
+        } else {
+          $error = "Password yang Anda masukkan salah.";
+        }
+      } else {
+        $error = "Username tidak ditemukan.";
+      }
+    } catch(PDOException $e) {
+      $error = "Terjadi kesalahan sistem: " . $e->getMessage();
     }
   }
   ?>

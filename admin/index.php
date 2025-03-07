@@ -117,38 +117,9 @@ if ($userId > 0) {
 
 <!doctype html>
 <html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>User Management - Akademi Merdeka</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Boxicons -->
-    <link rel="stylesheet" href="../assets/css/boxicons.min.css">
-    <!-- Custom Tailwind Config -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#f0f9ff',
-                            100: '#e0f2fe',
-                            200: '#bae6fd',
-                            300: '#7dd3fc',
-                            400: '#38bdf8',
-                            500: '#0ea5e9',
-                            600: '#0284c7',
-                            700: '#0369a1',
-                            800: '#075985',
-                            900: '#0c4a6e',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-</head>
+<?php
+include('components/head.php')
+?>
 <body class="bg-gray-50">
     <div class="min-h-screen flex flex-col lg:flex-row">
         <?php include('components/sidebar.php'); ?>
@@ -157,15 +128,8 @@ if ($userId > 0) {
             <div class="bg-white p-4 shadow flex justify-between items-center">
                 <h1 class="text-xl font-semibold text-gray-800">Dashboard</h1>
                 <div class="flex items-center space-x-4">
-                    <div class="relative">
-                        <button class="text-gray-500 hover:text-gray-700">
-                            <i class='bx bx-bell text-xl'></i>
-                            <span class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
-                        </button>
-                    </div>
                     <div class="flex items-center space-x-2">
                         <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($currentUsername); ?></span>
-                        <img class="w-8 h-8 rounded-full" src="../assets/images/team/pp-1.png" alt="Profile">
                     </div>
                 </div>
             </div>
