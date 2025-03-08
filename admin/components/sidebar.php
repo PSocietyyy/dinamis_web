@@ -3,20 +3,29 @@
 $current_page = basename($_SERVER['PHP_SELF']);
 $current_dir = dirname($_SERVER['PHP_SELF']);
 
-// Determine if we're in a subdirectory of admin
-$is_in_subdirectory = (strpos($current_dir, '/admin/') !== false && $current_dir !== '/admin');
+// Determine which directory level we're at
+$in_edit_pages = strpos($current_dir, '/edit-pages') !== false;
+$in_pages = strpos($current_dir, '/pages') !== false && !$in_edit_pages;
+$in_admin_root = !$in_pages && !$in_edit_pages;
 
-// Set paths accordingly
-$root_path = $is_in_subdirectory ? '../' : '';
-$pages_path = $is_in_subdirectory ? './' : 'pages/';
-
-// Get the base URL
-$base_url = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
-$base_url .= "://" . $_SERVER['HTTP_HOST'];
-$admin_url = $base_url . dirname($_SERVER['PHP_SELF']);
-if ($is_in_subdirectory) {
-    $admin_url = dirname($admin_url);
+// Set paths based on current location
+if ($in_edit_pages) {
+    $root_path = "../../"; // From edit-pages to admin root
+    $pages_path = "../"; // From edit-pages to pages
+} elseif ($in_pages) {
+    $root_path = "../"; // From pages to admin root
+    $pages_path = "./"; // Already in pages
+} else {
+    $root_path = "./"; // Already in admin root
+    $pages_path = "pages/"; // From admin root to pages
 }
+
+// Check which page is active for highlighting
+$is_dashboard = $current_page == 'index.php' && $in_admin_root;
+$is_navbar = $current_page == 'manage-navbar.php';
+$is_footer = $current_page == 'manage-footer.php';
+$is_pages = $current_page == 'manage-pages.php';
+$is_homepage = $in_edit_pages; // Any page in edit-pages directory
 ?>
 
 <div class="fixed inset-y-0 left-0 z-30 w-64 bg-purple-950 text-white transform transition-transform duration-300 lg:translate-x-0 shadow-lg" id="sidebar">
@@ -29,24 +38,30 @@ if ($is_in_subdirectory) {
     
     <div class="flex flex-col h-[calc(100%-4rem)] justify-between">
         <nav class="mt-5 px-2">
-            <a href="<?php echo $root_path; ?>index.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'index.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
+            <a href="<?php echo $root_path; ?>index.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo $is_dashboard ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-dashboard text-xl mr-3'></i>
                 <span>Dashboard</span>
             </a>
             
-            <a href="<?php echo $root_path; ?>manage-navbar.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-navbar.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
+            <a href="<?php echo $root_path; ?>manage-navbar.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo $is_navbar ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-navigation text-xl mr-3'></i>
                 <span>Navbar</span>
             </a>
             
-            <a href="<?php echo $root_path; ?>manage-footer.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-footer.php' || $current_page == 'manage-components.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
+            <a href="<?php echo $root_path; ?>manage-footer.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo $is_footer ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-layout text-xl mr-3'></i>
                 <span>Footer</span>
             </a>
             
             <div class="px-3 py-2 mt-4 text-xs uppercase text-blue-200 font-semibold">Content</div>
             
-            <a href="<?php echo $pages_path; ?>manage-pages.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-pages.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
+            <!-- Homepage Editor Link -->
+            <a href="<?php echo $root_path; ?>pages/edit-pages/index.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo $is_homepage ? 'bg-white/20 shadow-sm' : ''; ?>">
+                <i class='bx bxs-home text-xl mr-3'></i>
+                <span>Homepage</span>
+            </a>
+            
+            <a href="<?php echo $root_path; ?>pages/manage-pages.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo $is_pages ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-file text-xl mr-3'></i>
                 <span>Pages</span>
             </a>
@@ -59,13 +74,6 @@ if ($is_in_subdirectory) {
             <a href="#" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all">
                 <i class='bx bxs-server text-xl mr-3'></i>
                 <span>Services</span>
-            </a>
-            
-            <div class="px-3 py-2 mt-4 text-xs uppercase text-blue-200 font-semibold">Users</div>
-            
-            <a href="<?php echo $root_path; ?>manage-users.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo ($current_page == 'manage-users.php') ? 'bg-white/20 shadow-sm' : ''; ?>">
-                <i class='bx bxs-user-account text-xl mr-3'></i>
-                <span>Users</span>
             </a>
         </nav>
         
