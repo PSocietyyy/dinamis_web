@@ -1,25 +1,19 @@
 <?php
-// Start the session
 session_start();
 
-// Check if not logged in
 if(!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
     header("Location: ../../../login.php");
     exit;
 }
 
-// Include database connection
 require_once('../../../config.php');
 
-// Initialize variables
 $message = '';
 $messageType = '';
 $username = $_SESSION['username'] ?? 'Admin';
 
-// Get active tab from URL or default to 'banner'
 $activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'banner';
 
-// Get all homepage sections
 $sections = [];
 try {
     $stmt = $conn->query("SELECT * FROM homepage_sections WHERE is_active = 1 ORDER BY id");
@@ -28,13 +22,11 @@ try {
     $message = "Error fetching sections: " . $e->getMessage();
     $messageType = "error";
     
-    // Check if homepage_sections table doesn't exist, suggest running the setup
     if(strpos($e->getMessage(), "Table 'akademi_merdeka.homepage_sections' doesn't exist") !== false) {
         $message = "Homepage tables not found. Please run the database setup script first.";
     }
 }
 
-// Map of section_key to more readable names
 $sectionNames = [
     'banner' => 'Banner & Hero',
     'stats' => 'Statistics Slider',
@@ -46,7 +38,6 @@ $sectionNames = [
     'blog' => 'Blog Posts'
 ];
 
-// Check if DB setup needed
 $setupNeeded = false;
 try {
     $stmt = $conn->query("SELECT 1 FROM homepage_sections LIMIT 1");
@@ -55,13 +46,9 @@ try {
     $setupNeeded = true;
 }
 
-// Handle DB setup if requested
 if(isset($_POST['setup_homepage_db']) && $setupNeeded) {
     try {
-        // Read the SQL file
         $setupSql = file_get_contents('homepage-db-setup.sql');
-        
-        // Execute the SQL statements
         $conn->exec($setupSql);
         
         $message = "Homepage database tables created successfully! Please refresh the page.";
@@ -80,11 +67,8 @@ if(isset($_POST['setup_homepage_db']) && $setupNeeded) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Homepage - Akademi Merdeka</title>
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Boxicons -->
     <link rel="stylesheet" href="../../../assets/css/boxicons.min.css">
-    <!-- Custom Tailwind Config -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;300;400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
