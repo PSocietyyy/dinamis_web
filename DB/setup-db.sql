@@ -2,6 +2,9 @@
 CREATE DATABASE IF NOT EXISTS akademi_merdeka;
 USE akademi_merdeka;
 
+-- ===============================
+-- User Management Tables
+-- ===============================
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -10,10 +13,13 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Default admin user
 INSERT INTO users (username, password, role) 
 VALUES ('admin', 'admin123', 'admin');
 
--- Navbar items table
+-- ===============================
+-- Navigation Management Tables
+-- ===============================
 CREATE TABLE IF NOT EXISTS navbar_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     parent_id INT NULL,
@@ -26,7 +32,74 @@ CREATE TABLE IF NOT EXISTS navbar_items (
     FOREIGN KEY (parent_id) REFERENCES navbar_items(id) ON DELETE SET NULL
 );
 
--- Insert default navbar items
+-- ===============================
+-- Content Management Tables
+-- ===============================
+CREATE TABLE IF NOT EXISTS page_meta (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    page_id INT NOT NULL,
+    meta_title VARCHAR(255),
+    meta_description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (page_id) REFERENCES navbar_items(id) ON DELETE CASCADE
+);
+
+-- ===============================
+-- Footer Management Tables
+-- ===============================
+CREATE TABLE IF NOT EXISTS footer_links (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    section VARCHAR(50) NOT NULL,
+    title VARCHAR(100) NOT NULL,
+    url VARCHAR(255) NOT NULL,
+    position INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ===============================
+-- Site Configuration Tables
+-- ===============================
+CREATE TABLE IF NOT EXISTS site_settings (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    setting_key VARCHAR(100) NOT NULL UNIQUE,
+    setting_value TEXT,
+    setting_group VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ===============================
+-- Newsletter Management Tables
+-- ===============================
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    name VARCHAR(100),
+    subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    ip_address VARCHAR(45),
+    user_agent TEXT
+);
+
+CREATE TABLE IF NOT EXISTS bulletin_fields (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    field_name VARCHAR(50) NOT NULL,
+    field_label VARCHAR(100) NOT NULL,
+    field_type ENUM('text', 'email', 'textarea', 'select', 'checkbox') NOT NULL,
+    is_required BOOLEAN DEFAULT FALSE,
+    placeholder VARCHAR(255),
+    position INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- ===============================
+-- Default Data - Navbar Items
+-- ===============================
 INSERT INTO navbar_items (parent_id, title, url, position, is_active) VALUES
 (NULL, 'Home', './index.php', 1, 1),
 (NULL, 'Tentang', '#', 2, 1),
@@ -52,28 +125,24 @@ INSERT INTO navbar_items (parent_id, title, url, position, is_active) VALUES
 (@produk_id, 'E-Perpus', './eperpus.php', 3, 1),
 (@produk_id, 'E-Catalogue', './ecatalogue.php', 4, 1);
 
-CREATE TABLE IF NOT EXISTS site_settings (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    setting_key VARCHAR(100) NOT NULL UNIQUE,
-    setting_value TEXT,
-    setting_group VARCHAR(50) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
+-- ===============================
+-- Default Data - Footer Links
+-- ===============================
+INSERT INTO footer_links (section, title, url, position, is_active) VALUES
+-- Layanan Kami
+('layanan', 'Karya Ilmiah', 'services/karya-ilmiah', 1, 1),
+('layanan', 'Penerbitan Jurnal', 'services/penerbitan-jurnal', 2, 1),
+('layanan', 'Penerbitan Buku', 'services/penerbitan-buku', 3, 1),
+('layanan', 'Penerbitan HKI', 'services/penerbitan-hki', 4, 1),
+('layanan', 'Pengolahan Statistik', 'services/pengolahan-statistik', 5, 1),
+('layanan', 'Pendampingan OJS', 'services/pendampingan-ojs', 6, 1),
+('layanan', 'Pendampingan TKDA/TKBI', 'services/pendampingan-tkda', 7, 1),
+('layanan', 'Konversi KTI', 'services/konversi-kti', 8, 1),
+('layanan', 'Pembuatan Media Ajar', 'services/media-ajar', 9, 1);
 
--- Footer links table
-CREATE TABLE IF NOT EXISTS footer_links (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    section VARCHAR(50) NOT NULL,
-    title VARCHAR(100) NOT NULL,
-    url VARCHAR(255) NOT NULL,
-    position INT NOT NULL DEFAULT 0,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Insert default site settings
+-- ===============================
+-- Default Data - Site Settings
+-- ===============================
 INSERT INTO site_settings (setting_key, setting_value, setting_group) VALUES
 -- Navbar settings
 ('navbar_logo', 'assets/images/logos/logo-akademi-merdeka.png', 'navbar'),
@@ -90,23 +159,8 @@ INSERT INTO site_settings (setting_key, setting_value, setting_group) VALUES
 ('footer_company_phone', '+62 877-3542-6107', 'footer'),
 ('footer_company_email', 'info@akademimerdeka.com', 'footer'),
 ('footer_copyright_text', 'Copyright © 2023 <a href="https://akademimerdeka.com/">Akademi Merdeka</a> as establisment date 2022', 'footer'),
-('footer_bg_color', '#343a40', 'footer'),
 ('footer_text_color', '#ffffff', 'footer'),
-('footer_whatsapp_link', 'https://wa.me/6287735426107', 'footer');
-
--- Insert default footer sections 
-INSERT INTO footer_links (section, title, url, position, is_active) VALUES
--- Layanan Kami
-('layanan', 'Penerbitan Jurnal', 'services/penerbitan-jurnal', 1, 1),
-('layanan', 'Penerbitan HKI', 'services/penerbitan-hki', 2, 1),
-('layanan', 'Pengolahan Statistik', 'services/pengolahan-statistik', 3, 1),
-('layanan', 'Pendampingan OJS', 'services/pendampingan-ojs', 4, 1),
-('layanan', 'Pendampingan TKDA/TKBI', 'services/pendampingan-tkda', 5, 1),
-('layanan', 'Konversi KTI', 'services/konversi-kti', 6, 1),
-('layanan', 'Pembuatan Media Ajar', 'services/media-ajar', 7, 1);
-
--- Add bulletin settings to site_settings
-INSERT INTO site_settings (setting_key, setting_value, setting_group) VALUES
+('footer_whatsapp_link', 'https://wa.me/6287735426107', 'footer'),
 ('footer_bulletin_title', 'Bulletin', 'footer'),
 ('footer_bulletin_description', 'Informasi lain dapat diajukan kepada tim kami untuk ditindaklanjuti.', 'footer'),
 ('footer_newsletter_action', '', 'footer'),
@@ -114,31 +168,8 @@ INSERT INTO site_settings (setting_key, setting_value, setting_group) VALUES
 ('footer_gradient_start_color', '#343a40', 'footer'),
 ('footer_gradient_end_color', '#1a1e21', 'footer');
 
--- Create table for newsletter subscribers
-CREATE TABLE IF NOT EXISTS newsletter_subscribers (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    name VARCHAR(100),
-    subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT TRUE,
-    ip_address VARCHAR(45),
-    user_agent TEXT
-);
-
--- Create table for bulletin newsletter form fields
-CREATE TABLE IF NOT EXISTS bulletin_fields (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    field_name VARCHAR(50) NOT NULL,
-    field_label VARCHAR(100) NOT NULL,
-    field_type ENUM('text', 'email', 'textarea', 'select', 'checkbox') NOT NULL,
-    is_required BOOLEAN DEFAULT FALSE,
-    placeholder VARCHAR(255),
-    position INT NOT NULL DEFAULT 0,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Insert default email field
+-- ===============================
+-- Default Data - Newsletter Fields
+-- ===============================
 INSERT INTO bulletin_fields (field_name, field_label, field_type, is_required, placeholder, position, is_active)
 VALUES ('email', 'Email', 'email', TRUE, 'Enter Your Email', 1, TRUE);

@@ -7,7 +7,7 @@ $current_dir = dirname($_SERVER['PHP_SELF']);
 $in_edit_pages = strpos($current_dir, '/edit-pages') !== false;
 $in_pages = strpos($current_dir, '/pages') !== false && !$in_edit_pages;
 $in_admin_root = !$in_pages && !$in_edit_pages;
-$currentUsername = $_SESSION['username'];
+$currentUsername = $_SESSION['username'] ?? 'Admin';
 
 // Set paths based on current location
 if ($in_edit_pages) {
@@ -25,8 +25,8 @@ if ($in_edit_pages) {
 $is_dashboard = $current_page == 'index.php' && $in_admin_root;
 $is_navbar = $current_page == 'manage-navbar.php';
 $is_footer = $current_page == 'manage-footer.php';
-$is_pages = $current_page == 'manage-pages.php';
-$is_homepage = $in_edit_pages; // Any page in edit-pages directory
+// Modified: Pages menu will be highlighted for both manage-pages.php and when in edit-pages directory
+$is_pages = $current_page == 'manage-pages.php' || $in_edit_pages;
 ?>
 
 <div class="fixed inset-y-0 left-0 z-30 w-64 bg-gradient-to-b from-purple-950 to-violet-900 text-white rounded-r-2xl transform transition-transform duration-300 lg:translate-x-0 shadow-lg" id="sidebar">
@@ -55,12 +55,6 @@ $is_homepage = $in_edit_pages; // Any page in edit-pages directory
             </a>
             
             <div class="px-3 py-2 mt-4 text-xs uppercase text-blue-200 font-semibold">Content</div>
-            
-            <!-- Homepage Editor Link -->
-            <a href="<?php echo $root_path; ?>pages/edit-pages/index.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo $is_homepage ? 'bg-white/20 shadow-sm' : ''; ?>">
-                <i class='bx bxs-home text-xl mr-3'></i>
-                <span>Homepage</span>
-            </a>
             
             <a href="<?php echo $root_path; ?>pages/manage-pages.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo $is_pages ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-file text-xl mr-3'></i>

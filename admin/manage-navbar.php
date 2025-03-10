@@ -413,34 +413,6 @@ include('components/head.php')
                             </form>
                         </div>
                     </div>
-
-                    <!-- Preview Section -->
-                    <div class="mt-8 bg-white rounded-lg shadow overflow-hidden">
-                        <div class="p-6">
-                            <h2 class="text-lg font-semibold text-gray-800 mb-4">Navbar Preview</h2>
-
-                            <div class="p-4 border rounded-lg mb-2" style="background-color: <?php echo htmlspecialchars($navbar_settings['navbar_bg_color']); ?>;">
-                                <div class="flex justify-between items-center">
-                                    <div>
-                                        <img src="../<?php echo htmlspecialchars($navbar_settings['navbar_logo']); ?>" alt="Logo" class="h-10">
-                                    </div>
-                                    <div class="flex items-center space-x-8">
-                                        <a href="#" style="color: <?php echo htmlspecialchars($navbar_settings['navbar_text_color']); ?>;" class="font-medium">Home</a>
-                                        <a href="#" style="color: <?php echo htmlspecialchars($navbar_settings['navbar_text_color']); ?>;" class="font-medium">About</a>
-                                        <a href="#" style="color: <?php echo htmlspecialchars($navbar_settings['navbar_text_color']); ?>;" class="font-medium">Services</a>
-                                        <a href="#" style="color: <?php echo htmlspecialchars($navbar_settings['navbar_text_color']); ?>;" class="font-medium">Contact</a>
-                                    </div>
-                                    <div>
-                                        <a href="#" class="px-5 py-2 bg-blue-600 text-white rounded-full text-sm">
-                                            <?php echo htmlspecialchars($navbar_settings['navbar_button_text']); ?>
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <p class="text-sm text-gray-500 mt-2">This is a simplified preview. Actual appearance may vary.</p>
-                        </div>
-                    </div>
                 <?php endif; ?>
 
                 <?php if ($activeTab === 'menu_items'): ?>
@@ -561,22 +533,15 @@ include('components/head.php')
                                 </div>
                             </div>
 
-                            <!-- Improved Table with Horizontal Scrolling -->
+                            <!-- Menu Items Table -->
                             <div class="bg-white rounded-lg shadow mb-6">
                                 <div class="p-6 border-b border-gray-200">
                                     <h2 class="text-lg font-semibold text-gray-800 mb-2">Menu Structure</h2>
                                     <p class="text-sm text-gray-500">Manage your navigation menu items and structure</p>
                                 </div>
 
-                                <!-- Table Container with Shadow Indicators for Scrolling -->
+                                <!-- Table Container -->
                                 <div class="relative">
-                                    <!-- Left Shadow Indicator (appears when scrolling) -->
-                                    <div class="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none z-10 opacity-0 transition-opacity duration-200" id="leftShadow"></div>
-
-                                    <!-- Right Shadow Indicator (appears when scrollable) -->
-                                    <div class="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none z-10 transition-opacity duration-200" id="rightShadow"></div>
-
-                                    <!-- Scrollable Table Container -->
                                     <div class="overflow-x-auto max-h-[70vh] overflow-y-auto" id="tableScroll">
                                         <table class="min-w-full divide-y divide-gray-200 table-fixed">
                                             <thead class="bg-gray-50 sticky top-0 z-10">
@@ -677,14 +642,13 @@ include('components/head.php')
                                                             </tr>
                                                         <?php endforeach; ?>
                                                     <?php endif; ?>
-
                                                 <?php endforeach; ?>
                                             </tbody>
                                         </table>
                                     </div>
                                 </div>
 
-                                <!-- Empty state message when no menu items are found -->
+                                <!-- Empty state message -->
                                 <?php if (empty($menu_items)): ?>
                                     <div class="p-6">
                                         <div class="bg-blue-50 text-blue-700 p-4 rounded flex items-start">
@@ -694,8 +658,6 @@ include('components/head.php')
                                     </div>
                                 <?php endif; ?>
                             </div>
-
-                        
                         </div>
                     </div>
                 <?php endif; ?>
@@ -800,5 +762,4 @@ include('components/head.php')
         }
     </script>
 </body>
-
 </html>

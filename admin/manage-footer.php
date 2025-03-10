@@ -27,11 +27,11 @@ if (isset($_POST['update_footer'])) {
         'footer_copyright_text' => $_POST['footer_copyright_text'],
         'footer_text_color' => $_POST['footer_text_color'],
         'footer_whatsapp_link' => $_POST['footer_whatsapp_link'],
-        // New gradient settings
+        // Gradient settings
         'footer_gradient_direction' => $_POST['footer_gradient_direction'],
         'footer_gradient_start_color' => $_POST['footer_gradient_start_color'],
         'footer_gradient_end_color' => $_POST['footer_gradient_end_color'],
-        // New bulletin settings
+        // Bulletin settings
         'footer_bulletin_title' => $_POST['footer_bulletin_title'],
         'footer_bulletin_description' => $_POST['footer_bulletin_description'],
         'footer_newsletter_action' => $_POST['footer_newsletter_action']
@@ -399,203 +399,151 @@ include('components/head.php')
 
                 <?php if ($activeTab === 'settings'): ?>
                     <!-- Footer Settings Tab -->
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2">
-                            <div class="bg-white rounded-lg shadow overflow-hidden">
-                                <div class="p-6">
-                                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Footer Settings</h2>
+                    <div class="bg-white rounded-lg shadow overflow-hidden">
+                        <div class="p-6">
+                            <h2 class="text-lg font-semibold text-gray-800 mb-4">Footer Settings</h2>
 
-                                    <form method="POST" action="">
-                                        <input type="hidden" name="active_tab" value="settings">
+                            <form method="POST" action="">
+                                <input type="hidden" name="active_tab" value="settings">
 
-                                        <!-- Logo Settings -->
-                                        <div class="mb-4">
-                                            <label for="footer_logo" class="block text-sm font-medium text-gray-700 mb-1">Footer Logo Path</label>
-                                            <input type="text" id="footer_logo" name="footer_logo"
-                                                value="<?php echo htmlspecialchars($footer_settings['footer_logo']); ?>"
+                                <!-- Logo Settings -->
+                                <div class="mb-4">
+                                    <label for="footer_logo" class="block text-sm font-medium text-gray-700 mb-1">Footer Logo Path</label>
+                                    <input type="text" id="footer_logo" name="footer_logo"
+                                        value="<?php echo htmlspecialchars($footer_settings['footer_logo']); ?>"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <p class="mt-1 text-xs text-gray-500">Path to the footer logo image</p>
+                                </div>
+
+                                <!-- Company Info -->
+                                <div class="mb-4">
+                                    <label for="footer_company_name" class="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                                    <input type="text" id="footer_company_name" name="footer_company_name"
+                                        value="<?php echo htmlspecialchars($footer_settings['footer_company_name']); ?>"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="footer_company_address" class="block text-sm font-medium text-gray-700 mb-1">Company Address</label>
+                                    <textarea id="footer_company_address" name="footer_company_address" rows="2"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><?php echo htmlspecialchars($footer_settings['footer_company_address']); ?></textarea>
+                                    <p class="mt-1 text-xs text-gray-500">You can use HTML tags like &lt;br&gt; for line breaks</p>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label for="footer_company_phone" class="block text-sm font-medium text-gray-700 mb-1">Company Phone</label>
+                                        <input type="text" id="footer_company_phone" name="footer_company_phone"
+                                            value="<?php echo htmlspecialchars($footer_settings['footer_company_phone']); ?>"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <div>
+                                        <label for="footer_company_email" class="block text-sm font-medium text-gray-700 mb-1">Company Email</label>
+                                        <input type="email" id="footer_company_email" name="footer_company_email"
+                                            value="<?php echo htmlspecialchars($footer_settings['footer_company_email']); ?>"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                </div>
+
+                                <div class="mb-4">
+                                    <label for="footer_copyright_text" class="block text-sm font-medium text-gray-700 mb-1">Copyright Text</label>
+                                    <input type="text" id="footer_copyright_text" name="footer_copyright_text"
+                                        value="<?php echo htmlspecialchars($footer_settings['footer_copyright_text']); ?>"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <p class="mt-1 text-xs text-gray-500">You can use HTML tags like &lt;a&gt; for links</p>
+                                </div>
+
+                                <!-- Gradient Settings -->
+                                <div class="mt-6 mb-4">
+                                    <h3 class="text-base font-medium text-gray-800 mb-2">Background Gradient</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div>
+                                            <label for="footer_gradient_direction" class="block text-sm font-medium text-gray-700 mb-1">Direction</label>
+                                            <select id="footer_gradient_direction" name="footer_gradient_direction"
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                            <p class="mt-1 text-xs text-gray-500">Path to the footer logo image</p>
+                                                <option value="to right" <?php echo $footer_settings['footer_gradient_direction'] === 'to right' ? 'selected' : ''; ?>>Left to Right</option>
+                                                <option value="to left" <?php echo $footer_settings['footer_gradient_direction'] === 'to left' ? 'selected' : ''; ?>>Right to Left</option>
+                                                <option value="to bottom" <?php echo $footer_settings['footer_gradient_direction'] === 'to bottom' ? 'selected' : ''; ?>>Top to Bottom</option>
+                                                <option value="to top" <?php echo $footer_settings['footer_gradient_direction'] === 'to top' ? 'selected' : ''; ?>>Bottom to Top</option>
+                                                <option value="to bottom right" <?php echo $footer_settings['footer_gradient_direction'] === 'to bottom right' ? 'selected' : ''; ?>>Top Left to Bottom Right</option>
+                                                <option value="to bottom left" <?php echo $footer_settings['footer_gradient_direction'] === 'to bottom left' ? 'selected' : ''; ?>>Top Right to Bottom Left</option>
+                                                <option value="to top right" <?php echo $footer_settings['footer_gradient_direction'] === 'to top right' ? 'selected' : ''; ?>>Bottom Left to Top Right</option>
+                                                <option value="to top left" <?php echo $footer_settings['footer_gradient_direction'] === 'to top left' ? 'selected' : ''; ?>>Bottom Right to Top Left</option>
+                                            </select>
                                         </div>
-
-                                        <!-- Company Info -->
-                                        <div class="mb-4">
-                                            <label for="footer_company_name" class="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-                                            <input type="text" id="footer_company_name" name="footer_company_name"
-                                                value="<?php echo htmlspecialchars($footer_settings['footer_company_name']); ?>"
-                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        </div>
-
-                                        <div class="mb-4">
-                                            <label for="footer_company_address" class="block text-sm font-medium text-gray-700 mb-1">Company Address</label>
-                                            <textarea id="footer_company_address" name="footer_company_address" rows="2"
-                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><?php echo htmlspecialchars($footer_settings['footer_company_address']); ?></textarea>
-                                            <p class="mt-1 text-xs text-gray-500">You can use HTML tags like &lt;br&gt; for line breaks</p>
-                                        </div>
-
-                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                            <div>
-                                                <label for="footer_company_phone" class="block text-sm font-medium text-gray-700 mb-1">Company Phone</label>
-                                                <input type="text" id="footer_company_phone" name="footer_company_phone"
-                                                    value="<?php echo htmlspecialchars($footer_settings['footer_company_phone']); ?>"
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                            </div>
-                                            <div>
-                                                <label for="footer_company_email" class="block text-sm font-medium text-gray-700 mb-1">Company Email</label>
-                                                <input type="email" id="footer_company_email" name="footer_company_email"
-                                                    value="<?php echo htmlspecialchars($footer_settings['footer_company_email']); ?>"
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                            </div>
-                                        </div>
-
-                                        <div class="mb-4">
-                                            <label for="footer_copyright_text" class="block text-sm font-medium text-gray-700 mb-1">Copyright Text</label>
-                                            <input type="text" id="footer_copyright_text" name="footer_copyright_text"
-                                                value="<?php echo htmlspecialchars($footer_settings['footer_copyright_text']); ?>"
-                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                            <p class="mt-1 text-xs text-gray-500">You can use HTML tags like &lt;a&gt; for links</p>
-                                        </div>
-
-                                        <!-- Gradient Settings -->
-                                        <div class="mt-6 mb-4">
-                                            <h3 class="text-base font-medium text-gray-800 mb-2">Background Gradient</h3>
-                                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                                <div>
-                                                    <label for="footer_gradient_direction" class="block text-sm font-medium text-gray-700 mb-1">Direction</label>
-                                                    <select id="footer_gradient_direction" name="footer_gradient_direction"
-                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                        <option value="to right" <?php echo $footer_settings['footer_gradient_direction'] === 'to right' ? 'selected' : ''; ?>>Left to Right</option>
-                                                        <option value="to left" <?php echo $footer_settings['footer_gradient_direction'] === 'to left' ? 'selected' : ''; ?>>Right to Left</option>
-                                                        <option value="to bottom" <?php echo $footer_settings['footer_gradient_direction'] === 'to bottom' ? 'selected' : ''; ?>>Top to Bottom</option>
-                                                        <option value="to top" <?php echo $footer_settings['footer_gradient_direction'] === 'to top' ? 'selected' : ''; ?>>Bottom to Top</option>
-                                                        <option value="to bottom right" <?php echo $footer_settings['footer_gradient_direction'] === 'to bottom right' ? 'selected' : ''; ?>>Top Left to Bottom Right</option>
-                                                        <option value="to bottom left" <?php echo $footer_settings['footer_gradient_direction'] === 'to bottom left' ? 'selected' : ''; ?>>Top Right to Bottom Left</option>
-                                                        <option value="to top right" <?php echo $footer_settings['footer_gradient_direction'] === 'to top right' ? 'selected' : ''; ?>>Bottom Left to Top Right</option>
-                                                        <option value="to top left" <?php echo $footer_settings['footer_gradient_direction'] === 'to top left' ? 'selected' : ''; ?>>Bottom Right to Top Left</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label for="footer_gradient_start_color" class="block text-sm font-medium text-gray-700 mb-1">Start Color</label>
-                                                    <div class="flex">
-                                                        <input type="text" id="footer_gradient_start_color" name="footer_gradient_start_color"
-                                                            value="<?php echo htmlspecialchars($footer_settings['footer_gradient_start_color']); ?>"
-                                                            class="flex-1 px-3 py-2 border border-gray-300 w-40 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                        <input type="color"
-                                                            value="<?php echo htmlspecialchars($footer_settings['footer_gradient_start_color']); ?>"
-                                                            onInput="document.getElementById('footer_gradient_start_color').value = this.value"
-                                                            class="h-auto w-10 rounded-r-md border-t border-r border-b border-gray-300 p-0">
-                                                    </div>
-                                                </div>
-                                                <div>
-                                                    <label for="footer_gradient_end_color" class="block text-sm font-medium text-gray-700 mb-1">End Color</label>
-                                                    <div class="flex">
-                                                        <input type="text" id="footer_gradient_end_color" name="footer_gradient_end_color"
-                                                            value="<?php echo htmlspecialchars($footer_settings['footer_gradient_end_color']); ?>"
-                                                            class="flex-1 px-3 py-2 border border-gray-300 w-40 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                        <input type="color"
-                                                            value="<?php echo htmlspecialchars($footer_settings['footer_gradient_end_color']); ?>"
-                                                            onInput="document.getElementById('footer_gradient_end_color').value = this.value"
-                                                            class="h-auto w-10 rounded-r-md border-t border-r border-b border-gray-300 p-0">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="mt-2 h-10 w-full rounded-md"
-                                                style="background-image: linear-gradient(<?php echo htmlspecialchars($footer_settings['footer_gradient_direction']); ?>, <?php echo htmlspecialchars($footer_settings['footer_gradient_start_color']); ?>, <?php echo htmlspecialchars($footer_settings['footer_gradient_end_color']); ?>);">
-                                            </div>
-                                        </div>
-
-                                        <!-- Text Color -->
-                                        <div class="mb-4">
-                                            <label for="footer_text_color" class="block text-sm font-medium text-gray-700 mb-1">Text Color</label>
+                                        <div>
+                                            <label for="footer_gradient_start_color" class="block text-sm font-medium text-gray-700 mb-1">Start Color</label>
                                             <div class="flex">
-                                                <input type="text" id="footer_text_color" name="footer_text_color"
-                                                    value="<?php echo htmlspecialchars($footer_settings['footer_text_color']); ?>"
-                                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <input type="text" id="footer_gradient_start_color" name="footer_gradient_start_color"
+                                                    value="<?php echo htmlspecialchars($footer_settings['footer_gradient_start_color']); ?>"
+                                                    class="flex-1 px-3 py-2 border border-gray-300 w-40 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                                 <input type="color"
-                                                    value="<?php echo htmlspecialchars($footer_settings['footer_text_color']); ?>"
-                                                    onInput="document.getElementById('footer_text_color').value = this.value"
+                                                    value="<?php echo htmlspecialchars($footer_settings['footer_gradient_start_color']); ?>"
+                                                    onInput="document.getElementById('footer_gradient_start_color').value = this.value"
                                                     class="h-auto w-10 rounded-r-md border-t border-r border-b border-gray-300 p-0">
                                             </div>
                                         </div>
-
-                                        <!-- Bulletin Settings -->
-                                        <div class="mt-6 mb-4">
-                                            <h3 class="text-base font-medium text-gray-800 mb-2">Bulletin Section</h3>
-                                            <div class="grid grid-cols-1 gap-4">
-                                                <div>
-                                                    <label for="footer_bulletin_title" class="block text-sm font-medium text-gray-700 mb-1">Bulletin Title</label>
-                                                    <input type="text" id="footer_bulletin_title" name="footer_bulletin_title"
-                                                        value="<?php echo htmlspecialchars($footer_settings['footer_bulletin_title']); ?>"
-                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                </div>
-                                                <div>
-                                                    <label for="footer_bulletin_description" class="block text-sm font-medium text-gray-700 mb-1">Bulletin Description</label>
-                                                    <textarea id="footer_bulletin_description" name="footer_bulletin_description" rows="2"
-                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><?php echo htmlspecialchars($footer_settings['footer_bulletin_description']); ?></textarea>
-                                                </div>
-                                                <div>
-                                                    <label for="footer_newsletter_action" class="block text-sm font-medium text-gray-700 mb-1">Newsletter Form Action URL</label>
-                                                    <input type="text" id="footer_newsletter_action" name="footer_newsletter_action"
-                                                        value="<?php echo htmlspecialchars($footer_settings['footer_newsletter_action']); ?>"
-                                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                    <p class="mt-1 text-xs text-gray-500">Leave blank to use default form handling</p>
-                                                </div>
+                                        <div>
+                                            <label for="footer_gradient_end_color" class="block text-sm font-medium text-gray-700 mb-1">End Color</label>
+                                            <div class="flex">
+                                                <input type="text" id="footer_gradient_end_color" name="footer_gradient_end_color"
+                                                    value="<?php echo htmlspecialchars($footer_settings['footer_gradient_end_color']); ?>"
+                                                    class="flex-1 px-3 py-2 border border-gray-300 w-40 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                <input type="color"
+                                                    value="<?php echo htmlspecialchars($footer_settings['footer_gradient_end_color']); ?>"
+                                                    onInput="document.getElementById('footer_gradient_end_color').value = this.value"
+                                                    class="h-auto w-10 rounded-r-md border-t border-r border-b border-gray-300 p-0">
                                             </div>
-                                        </div>
-
-                                        <!-- Submit Button -->
-                                        <div class="mt-6">
-                                            <button type="submit" name="update_footer" class="px-5 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                <i class='bx bx-save mr-2'></i> Save Footer Settings
-                                            </button>
-                                        </div>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Preview Section -->
-                        <div class="lg:col-span-1">
-                            <div class="bg-white rounded-lg shadow overflow-hidden">
-                                <div class="p-6">
-                                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Footer Preview</h2>
-
-                                    <div class="p-4 rounded-lg"
-                                        style="background-image: linear-gradient(<?php echo htmlspecialchars($footer_settings['footer_gradient_direction']); ?>, <?php echo htmlspecialchars($footer_settings['footer_gradient_start_color']); ?>, <?php echo htmlspecialchars($footer_settings['footer_gradient_end_color']); ?>); color: <?php echo htmlspecialchars($footer_settings['footer_text_color']); ?>;">
-                                        <div class="mb-4">
-                                            <img src="../<?php echo htmlspecialchars($footer_settings['footer_logo']); ?>" alt="Footer Logo" class="h-12 mb-2">
-                                            <p class="text-sm"><?php echo $footer_settings['footer_company_address']; ?></p>
-                                            <p class="text-sm"><strong>Phone:</strong> <?php echo htmlspecialchars($footer_settings['footer_company_phone']); ?></p>
-                                            <p class="text-sm"><strong>Email:</strong> <?php echo htmlspecialchars($footer_settings['footer_company_email']); ?></p>
-                                        </div>
-
-                                        <div class="mb-4">
-                                            <h3 class="font-medium mb-2">Layanan Kami</h3>
-                                            <ul class="text-sm space-y-1">
-                                                <li><a href="#" class="hover:opacity-75">Penerbitan Jurnal</a></li>
-                                                <li><a href="#" class="hover:opacity-75">Pengolahan Statistik</a></li>
-                                                <li><a href="#" class="hover:opacity-75">Pendampingan OJS</a></li>
-                                            </ul>
-                                        </div>
-
-                                        <div class="mb-4">
-                                            <h3 class="font-medium mb-2"><?php echo htmlspecialchars($footer_settings['footer_bulletin_title']); ?></h3>
-                                            <p class="text-sm"><?php echo htmlspecialchars($footer_settings['footer_bulletin_description']); ?></p>
-                                            <div class="mt-2 flex">
-                                                <input type="text" placeholder="Enter Your Email" class="text-xs px-2 py-1 w-full rounded-l-md border-0">
-                                                <button class="bg-blue-600 px-2 rounded-r-md">
-                                                    <i class='bx bx-paper-plane'></i>
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        <div class="border-t border-opacity-20 mt-4 pt-4 text-center text-sm">
-                                            <?php echo $footer_settings['footer_copyright_text']; ?>
                                         </div>
                                     </div>
-
-                                    <p class="text-sm text-gray-500 mt-2">This is a simplified preview. Actual appearance may vary.</p>
                                 </div>
-                            </div>
+
+                                <!-- Text Color -->
+                                <div class="mb-4">
+                                    <label for="footer_text_color" class="block text-sm font-medium text-gray-700 mb-1">Text Color</label>
+                                    <div class="flex">
+                                        <input type="text" id="footer_text_color" name="footer_text_color"
+                                            value="<?php echo htmlspecialchars($footer_settings['footer_text_color']); ?>"
+                                            class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <input type="color"
+                                            value="<?php echo htmlspecialchars($footer_settings['footer_text_color']); ?>"
+                                            onInput="document.getElementById('footer_text_color').value = this.value"
+                                            class="h-auto w-10 rounded-r-md border-t border-r border-b border-gray-300 p-0">
+                                    </div>
+                                </div>
+
+                                <!-- Bulletin Settings -->
+                                <div class="mt-6 mb-4">
+                                    <h3 class="text-base font-medium text-gray-800 mb-2">Bulletin Section</h3>
+                                    <div class="grid grid-cols-1 gap-4">
+                                        <div>
+                                            <label for="footer_bulletin_title" class="block text-sm font-medium text-gray-700 mb-1">Bulletin Title</label>
+                                            <input type="text" id="footer_bulletin_title" name="footer_bulletin_title"
+                                                value="<?php echo htmlspecialchars($footer_settings['footer_bulletin_title']); ?>"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        </div>
+                                        <div>
+                                            <label for="footer_bulletin_description" class="block text-sm font-medium text-gray-700 mb-1">Bulletin Description</label>
+                                            <textarea id="footer_bulletin_description" name="footer_bulletin_description" rows="2"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><?php echo htmlspecialchars($footer_settings['footer_bulletin_description']); ?></textarea>
+                                        </div>
+                                        <div>
+                                            <label for="footer_newsletter_action" class="block text-sm font-medium text-gray-700 mb-1">Newsletter Form Action URL</label>
+                                            <input type="text" id="footer_newsletter_action" name="footer_newsletter_action"
+                                                value="<?php echo htmlspecialchars($footer_settings['footer_newsletter_action']); ?>"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <p class="mt-1 text-xs text-gray-500">Leave blank to use default form handling</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Submit Button -->
+                                <div class="mt-6">
+                                    <button type="submit" name="update_footer" class="px-5 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <i class='bx bx-save mr-2'></i> Save Footer Settings
+                                    </button>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 <?php endif; ?>
@@ -760,7 +708,6 @@ include('components/head.php')
                                                 </table>
                                             </div>
                                         </div>
-
                                     <?php endif; ?>
                                 </div>
                             </div>
@@ -963,70 +910,7 @@ include('components/head.php')
                                                 </tbody>
                                             </table>
                                         </div>
-
                                     <?php endif; ?>
-                                </div>
-                            </div>
-
-                            <!-- Form Preview -->
-                            <div class="mt-6 bg-white rounded-lg shadow overflow-hidden">
-                                <div class="p-6">
-                                    <h2 class="text-lg font-semibold text-gray-800 mb-4">Newsletter Form Preview</h2>
-
-                                    <div class="p-4 rounded-lg"
-                                        style="background-image: linear-gradient(<?php echo htmlspecialchars($footer_settings['footer_gradient_direction']); ?>, <?php echo htmlspecialchars($footer_settings['footer_gradient_start_color']); ?>, <?php echo htmlspecialchars($footer_settings['footer_gradient_end_color']); ?>); color: <?php echo htmlspecialchars($footer_settings['footer_text_color']); ?>;">
-                                        <h3 class="font-medium mb-2"><?php echo htmlspecialchars($footer_settings['footer_bulletin_title']); ?></h3>
-                                        <p class="text-sm mb-4"><?php echo htmlspecialchars($footer_settings['footer_bulletin_description']); ?></p>
-
-                                        <form class="space-y-2">
-                                            <?php
-                                            usort($bulletin_fields, function ($a, $b) {
-                                                return $a['position'] <=> $b['position'];
-                                            });
-
-                                            foreach ($bulletin_fields as $field):
-                                                if (!$field['is_active']) continue;
-                                            ?>
-                                                <?php if ($field['field_type'] == 'checkbox'): ?>
-                                                    <div class="flex items-center">
-                                                        <input type="checkbox" id="preview_<?php echo $field['field_name']; ?>"
-                                                            class="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                                            <?php echo $field['is_required'] ? 'required' : ''; ?>>
-                                                        <label for="preview_<?php echo $field['field_name']; ?>"
-                                                            class="ml-2 text-sm"><?php echo htmlspecialchars($field['field_label']); ?></label>
-                                                    </div>
-                                                <?php elseif ($field['field_type'] == 'textarea'): ?>
-                                                    <div>
-                                                        <label for="preview_<?php echo $field['field_name']; ?>"
-                                                            class="block text-sm font-medium mb-1"><?php echo htmlspecialchars($field['field_label']); ?></label>
-                                                        <textarea id="preview_<?php echo $field['field_name']; ?>"
-                                                            placeholder="<?php echo htmlspecialchars($field['placeholder']); ?>"
-                                                            class="w-full px-3 py-2 text-black border border-gray-300 rounded-md text-sm"
-                                                            rows="2"
-                                                            <?php echo $field['is_required'] ? 'required' : ''; ?>></textarea>
-                                                    </div>
-                                                <?php else: ?>
-                                                    <div>
-                                                        <label for="preview_<?php echo $field['field_name']; ?>"
-                                                            class="block text-sm font-medium mb-1"><?php echo htmlspecialchars($field['field_label']); ?></label>
-                                                        <input type="<?php echo $field['field_type']; ?>"
-                                                            id="preview_<?php echo $field['field_name']; ?>"
-                                                            placeholder="<?php echo htmlspecialchars($field['placeholder']); ?>"
-                                                            class="w-full px-3 py-2 text-black border border-gray-300 rounded-md text-sm"
-                                                            <?php echo $field['is_required'] ? 'required' : ''; ?>>
-                                                    </div>
-                                                <?php endif; ?>
-                                            <?php endforeach; ?>
-
-                                            <div class="pt-2">
-                                                <button type="submit" class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md text-sm">
-                                                    Subscribe
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </div>
-
-                                    <p class="text-sm text-gray-500 mt-2">This is a preview of how the newsletter form will appear in the footer.</p>
                                 </div>
                             </div>
                         </div>
@@ -1042,11 +926,6 @@ include('components/head.php')
             const direction = document.getElementById('footer_gradient_direction').value;
             const startColor = document.getElementById('footer_gradient_start_color').value;
             const endColor = document.getElementById('footer_gradient_end_color').value;
-
-            const preview = document.querySelector('[style*="background-image: linear-gradient"]');
-            if (preview) {
-                preview.style.backgroundImage = `linear-gradient(${direction}, ${startColor}, ${endColor})`;
-            }
         }
 
         // Add event listeners to update preview on changes
@@ -1056,12 +935,8 @@ include('components/head.php')
 
         // Update text color preview
         document.getElementById('footer_text_color')?.addEventListener('input', function() {
-            const preview = document.querySelector('[style*="background-image: linear-gradient"]');
-            if (preview) {
-                preview.style.color = this.value;
-            }
+            // Text color update handler
         });
     </script>
 </body>
-
 </html>
