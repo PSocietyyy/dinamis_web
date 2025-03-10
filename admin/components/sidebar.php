@@ -7,6 +7,7 @@ $current_dir = dirname($_SERVER['PHP_SELF']);
 $in_edit_pages = strpos($current_dir, '/edit-pages') !== false;
 $in_pages = strpos($current_dir, '/pages') !== false && !$in_edit_pages;
 $in_admin_root = !$in_pages && !$in_edit_pages;
+$currentUsername = $_SESSION['username'];
 
 // Set paths based on current location
 if ($in_edit_pages) {
@@ -28,11 +29,11 @@ $is_pages = $current_page == 'manage-pages.php';
 $is_homepage = $in_edit_pages; // Any page in edit-pages directory
 ?>
 
-<div class="fixed inset-y-0 left-0 z-30 w-64 bg-purple-950 text-white transform transition-transform duration-300 lg:translate-x-0 shadow-lg" id="sidebar">
+<div class="fixed inset-y-0 left-0 z-30 w-64 bg-gradient-to-b from-purple-950 to-violet-900 text-white rounded-r-2xl transform transition-transform duration-300 lg:translate-x-0 shadow-lg" id="sidebar">
     <div class="flex items-center justify-center h-16 border-b border-purple-500/30">
         <div class="flex items-center px-4">
-            <img src="<?php echo $root_path; ?>../assets/images/logos/logo-2.png" alt="Logo" class="w-8 h-8">
-            <span class="ml-3 text-lg font-semibold">Akademi Merdeka</span>
+            <img src="<?php echo $root_path; ?>../assets/images/logos/logo-2.png" alt="Logo" class="h-8">
+            <span class="ml-3 text-lg font-semibold"><?php echo htmlspecialchars($currentUsername); ?></span>
         </div>
     </div>
     

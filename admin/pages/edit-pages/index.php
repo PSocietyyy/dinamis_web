@@ -10,7 +10,7 @@ require_once('../../../config.php');
 
 $message = '';
 $messageType = '';
-$username = $_SESSION['username'] ?? 'Admin';
+$username = $_SESSION['username'];
 
 $activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'banner';
 
@@ -117,7 +117,6 @@ if(isset($_POST['setup_homepage_db']) && $setupNeeded) {
                 <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2">
                         <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($username); ?></span>
-                        <img class="w-8 h-8 rounded-full" src="../../../assets/images/team/pp-1.png" alt="Profile">
                     </div>
                 </div>
             </div>

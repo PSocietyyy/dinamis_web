@@ -268,15 +268,8 @@ if (file_exists($pageFile)) {
             <div class="bg-white p-4 shadow flex justify-between items-center">
                 <h1 class="text-xl font-semibold text-gray-800">Page Management</h1>
                 <div class="flex items-center space-x-4">
-                    <div class="relative">
-                        <button class="text-gray-500 hover:text-gray-700">
-                            <i class='bx bx-bell text-xl'></i>
-                            <span class="absolute top-0 right-0 h-2 w-2 rounded-full bg-red-500"></span>
-                        </button>
-                    </div>
                     <div class="flex items-center space-x-2">
                         <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($username); ?></span>
-                        <img class="w-8 h-8 rounded-full" src="../../assets/images/team/pp-1.png" alt="Profile">
                     </div>
                 </div>
             </div>

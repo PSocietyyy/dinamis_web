@@ -14,7 +14,7 @@ require_once('../config.php');
 // Initialize variables
 $message = '';
 $messageType = '';
-$currentUsername = $_SESSION['username'] ?? 'Admin';
+$currentUsername = $_SESSION['username'];
 $userId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $userData = null;
 
