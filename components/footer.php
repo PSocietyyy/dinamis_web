@@ -72,3 +72,9 @@
         </div>
       </div>
     </footer>
+
+
+
+    sekarang buatkan footer ini dinamis dan bisa di customisasi semuanya di admin/ dan beri nama manage-footer dan buatkan juga footer databases nya, ada 3 file manage-footer, databses nya dan footer nya buatkan yang bagus 
+
+note: untuk blog nya jangan dibuat dinamis dulu karena blog ada halamann nya sendiri 
