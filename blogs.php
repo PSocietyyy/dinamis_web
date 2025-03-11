@@ -114,7 +114,7 @@
       </div>
     </div>
     <?php
-    include('components/navbar.php')
+    include('components/footer.php')
     ?>
     <script src="assets/js/jquery.min.js"></script>
     <script src="assets/js/bootstrap.bundle.min.js"></script>

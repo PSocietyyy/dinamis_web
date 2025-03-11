@@ -838,7 +838,7 @@ include('components/head.php')
                                 </div>
                             </div>
                         </div>
-
+ 
                         <div class="lg:col-span-2">
                             <div class="bg-white rounded-lg shadow overflow-hidden">
                                 <div class="p-6">

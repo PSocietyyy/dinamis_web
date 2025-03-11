@@ -2,6 +2,8 @@
 <html lang="id">
   <?php
   include('components/head.php');
+  // Include database connection
+  require_once('config.php');
   ?>
   <body>
     <!-- Google Tag Manager (noscript) -->
@@ -50,49 +52,41 @@
           <h2>Tim Kami</h2>
         </div>
         <div class="row pt-45">
-          <div class="col-lg-4 col-md-6">
-            <div class="team-card"><img src="assets/images/team/pp-1.png" alt="Tim Images" loading="lazy">              
-              <div class="content">
-                <h3>Moch. Guntur</h3><span>Chief Executive Officer</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6">
-            <div class="team-card"><img src="assets/images/team/pp-2.png" alt="Tim Images" loading="lazy">              
-              <div class="content">
-                <h3>Azharani Aliyyatunnisa</h3><span>Chief Technical Officer</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6">
-            <div class="team-card"><img src="assets/images/team/pp-3.png" alt="Tim Images" loading="lazy">              
-              <div class="content">
-                <h3>Nur Indah Septia, N</h3><span>Chief Operation Officer</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6">
-            <div class="team-card"><img src="assets/images/team/pp-4.png" alt="Tim Images" loading="lazy">              
-              <div class="content">
-                <h3>Siti Musyarrofah</h3><span>Chief Marketing Officer</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6">
-            <div class="team-card"><img src="assets/images/team/pp-5.png" alt="Tim Images" loading="lazy">              
-              <div class="content">
-                <h3>Lusi Umayah</h3><span>Chief Financial Officer</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-lg-4 col-md-6">
-            <div class="team-card"><img src="assets/images/team/pp-6.png" alt="Tim Images" loading="lazy">              
-              <div class="content">
-                <h3>Ika Aprillia Putri</h3><span>Chief Support Officer</span>
-              </div>
-            </div>
-          </div>
-          
+          <?php
+          // Fetch team members from database
+          try {
+              $stmt = $conn->query("SELECT * FROM team_members WHERE is_active = 1 ORDER BY display_order, name");
+              $team_members = $stmt->fetchAll();
+              
+              if (count($team_members) > 0) {
+                  foreach ($team_members as $member) {
+                      ?>
+                      <div class="col-lg-4 col-md-6">
+                        <div class="team-card">
+                          <img src="<?php echo htmlspecialchars($member['image_path']); ?>" 
+                               alt="<?php echo htmlspecialchars($member['name']); ?> - <?php echo htmlspecialchars($member['position']); ?>" 
+                               loading="lazy">              
+                          <div class="content">
+                            <h3><?php echo htmlspecialchars($member['name']); ?></h3>
+                            <span><?php echo htmlspecialchars($member['position']); ?></span>
+                          </div>
+                        </div>
+                      </div>
+                      <?php
+                  }
+              } else {
+                  // If no team members found
+                  echo '<div class="col-12 text-center">';
+                  echo '<p>Data tim belum tersedia. Silakan kembali lagi nanti.</p>';
+                  echo '</div>';
+              }
+          } catch(PDOException $e) {
+              // If there's an error, show a message
+              echo '<div class="col-12 text-center">';
+              echo '<p>Maaf, data tim tidak tersedia saat ini.</p>';
+              echo '</div>';
+          }
+          ?>
         </div>
       </div>
     </div>
