@@ -1,7 +1,7 @@
 <?php
 // Include database connection if not already included
 if (!isset($conn)) {
-    require_once(__DIR__ . '/config.php');
+    require_once(__DIR__ . '/../config.php');
 }
 
 // Fetch footer settings
@@ -44,15 +44,17 @@ $bulletinText = $settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kep
     <div class="container">
         <div class="footer-top pt-100 pb-70">
             <div class="row">
-                <!-- Company Info Section -->
+                <!-- Company Info Section - DYNAMIC -->
                 <div class="col-lg-3 col-sm-6">
                     <div class="footer-widget">
                         <div class="footer-logo">
-                            <a href="/"><img src="<?php echo htmlspecialchars($footerLogo); ?>" alt="<?php echo htmlspecialchars($companyName); ?> Logo" loading="lazy" width="270"></a>
+                            <a href="/">
+                                <img src="<?php echo htmlspecialchars($footerLogo); ?>" 
+                                     alt="<?php echo htmlspecialchars($companyName); ?> Logo" 
+                                     loading="lazy" width="270">
+                            </a>
                         </div>
-                        <p>
-                            <?php echo nl2br(htmlspecialchars($companyAddress)); ?>
-                        </p>
+                        <p><?php echo nl2br(htmlspecialchars($companyAddress)); ?></p>
                         <div class="footer-call-content">
                             <h3>Hubungi Kami</h3>
                             <span><a href="tel:<?php echo preg_replace('/[^0-9+]/', '', $phone); ?>"><?php echo htmlspecialchars($phone); ?></a></span>
@@ -60,8 +62,8 @@ $bulletinText = $settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kep
                         </div>
                     </div>
                 </div>
-
-                <!-- Services Section - Dynamic -->
+                
+                <!-- Services Section - DYNAMIC -->
                 <div class="col-lg-3 col-sm-6" style="padding-left: 50px;">
                     <div class="footer-widget pl-2">
                         <h3>Layanan Kami</h3>
@@ -84,34 +86,28 @@ $bulletinText = $settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kep
                         </ul>
                     </div>
                 </div>
-
-                <!-- Blog Section - Static as requested -->
+                
+                <!-- Blog Section - STATIC (as requested) -->
                 <div class="col-lg-3 col-sm-6">
                     <div class="footer-widget pl-5">
                         <h3>Blog</h3>
                         <ul class="footer-blog">
                             <li>
-                                <a href="blog/teknik-pembuatan-jurnal-artikel">
-                                    <img src="assets/images/blog/blog-footer-jurnal.png" alt="Images" loading="lazy">
-                                </a>
+                                <a href="blog/teknik-pembuatan-jurnal-artikel"><img src="assets/images/blog/blog-footer-jurnal.png" alt="Images" loading="lazy"></a>
                                 <div class="content">
                                     <h3><a href="blog/teknik-pembuatan-jurnal-artikel">Teknik Pembuatan Jurnal/Artikel</a></h3>
                                     <span>11 Jan 2023</span>
                                 </div>
                             </li>
                             <li>
-                                <a href="blog/langkah-langkah-mendapatkan-hak-cipta">
-                                    <img src="assets/images/blog/blog-footer-hki.png" alt="Images" loading="lazy">
-                                </a>
+                                <a href="blog/langkah-langkah-mendapatkan-hak-cipta"><img src="assets/images/blog/blog-footer-hki.png" alt="Images" loading="lazy"></a>
                                 <div class="content">
                                     <h3><a href="blog/langkah-langkah-mendapatkan-hak-cipta">Langkah Langkah Mendapatkan HKI</a></h3>
                                     <span>08 Jan 2023</span>
                                 </div>
                             </li>
                             <li>
-                                <a href="blog/tips-konversi-kti-menjadi-buku-referensi-book-chapter">
-                                    <img src="assets/images/blog/blog-footer-kti.png" alt="Images" loading="lazy">
-                                </a>
+                                <a href="blog/tips-konversi-kti-menjadi-buku-referensi-book-chapter"><img src="assets/images/blog/blog-footer-kti.png" alt="Images" loading="lazy"></a>
                                 <div class="content">
                                     <h3><a href="blog/tips-konversi-kti-menjadi-buku-referensi-book-chapter">Tips Konversi KTI Menjadi Buku</a></h3>
                                     <span>06 Jan 2023</span>
@@ -120,8 +116,8 @@ $bulletinText = $settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kep
                         </ul>
                     </div>
                 </div>
-
-                <!-- Bulletin Section -->
+                
+                <!-- Bulletin Section - DYNAMIC -->
                 <div class="col-lg-3 col-sm-6">
                     <div class="footer-widget">
                         <h3><?php echo htmlspecialchars($bulletinTitle); ?></h3>

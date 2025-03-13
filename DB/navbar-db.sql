@@ -67,17 +67,13 @@ SELECT 'E-Catalogue', 'ecatalogue', id, 0, 4, 1 FROM navbar_items WHERE title = 
 -- Insert default settings for logos and action button
 INSERT INTO navbar_settings (setting_key, setting_value) VALUES
 ('logo_path', 'assets/images/logos/logo-akademi-merdeka.png'),
-('logo_height', '64'),
 ('logo_alt', 'Logo'),
 ('logo_two_path', 'assets/images/logos/logo-2.png'),
-('logo_two_height', '64'),
 ('logo_two_alt', 'Logo'),
 ('mobile_logo_path', 'assets/images/logos/logo-akademi-merdeka.png'),
-('mobile_logo_height', '64'),
 ('mobile_logo_alt', 'Logo'),
 ('mobile_logo_two_path', 'assets/images/logos/logo-2.png'),
-('mobile_logo_two_height', '64'),
 ('mobile_logo_two_alt', 'Logo'),
 ('action_button_text', 'Konsultasi Sekarang'),
 ('action_button_link', 'https://wa.me/6287735426107'),
-('action_button_target', '_blank'),
+('action_button_target', '_blank');
