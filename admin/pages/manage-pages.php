@@ -14,486 +14,342 @@ require_once('../../config.php');
 // Initialize variables
 $message = '';
 $messageType = '';
-$username = $_SESSION['username'] ?? 'Admin';
-$pageId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-$pageData = null;
+$currentUsername = $_SESSION['username'];
 
-// Get all pages from navbar items
-$pages = [];
+// Default directory for pages content
+$pagesDirectory = '../../pages/';
 
-try {
-    // Get parent menu items
-    $stmt = $conn->query("SELECT n1.id, n1.title, n1.url, n1.position, n1.is_active, 
-                           COUNT(n2.id) as children_count 
-                           FROM navbar_items n1 
-                           LEFT JOIN navbar_items n2 ON n1.id = n2.parent_id 
-                           WHERE n1.parent_id IS NULL 
-                           GROUP BY n1.id 
-                           ORDER BY n1.position");
-    $parent_items = $stmt->fetchAll();
-
-    foreach($parent_items as &$parent) {
-        // Get child items if any
-        $parent['children'] = [];
-        if($parent['children_count'] > 0) {
-            $stmt = $conn->prepare("SELECT id, title, url, position, is_active 
-                                    FROM navbar_items 
-                                    WHERE parent_id = :parent_id 
-                                    ORDER BY position");
-            $stmt->bindParam(':parent_id', $parent['id']);
-            $stmt->execute();
-            $parent['children'] = $stmt->fetchAll();
-        }
+// Function to get file path from navbar item URL
+function getPageFilePath($url) {
+    global $pagesDirectory;
+    
+    // Clean up URL (remove leading slashes, query params, etc.)
+    $url = trim($url, '/');
+    $url = strtok($url, '?');
+    
+    // Handle special cases
+    if ($url == '' || $url == 'index') {
+        return '../../index.php';
     }
     
-    $pages = $parent_items;
+    // Check if .php extension is needed
+    if (!str_ends_with($url, '.php')) {
+        $url .= '.php';
+    }
+    
+    return $pagesDirectory . $url;
+}
+
+// Check if file exists
+function pageFileExists($url) {
+    $filePath = getPageFilePath($url);
+    return file_exists($filePath);
+}
+
+// Get all pages and menu items (for the tree view)
+$menuItems = [];
+try {
+    $stmt = $conn->query("SELECT id, title, link, is_active, parent_id, has_dropdown, order_index 
+                        FROM navbar_items 
+                        ORDER BY parent_id IS NULL DESC, parent_id, order_index");
+    $menuItems = $stmt->fetchAll();
+    
+    // Mark items that are actual pages (not dropdown parents and not external links)
+    foreach ($menuItems as $key => $item) {
+        $menuItems[$key]['is_page'] = ($item['has_dropdown'] == 0 && strpos($item['link'], 'http') !== 0);
+        $menuItems[$key]['file_exists'] = $menuItems[$key]['is_page'] ? pageFileExists($item['link']) : false;
+    }
 } catch(PDOException $e) {
-    $message = "Error fetching pages: " . $e->getMessage();
+    $message = "Error fetching menu items: " . $e->getMessage();
     $messageType = "error";
 }
 
-// Get specific page data if ID is provided
-if ($pageId > 0) {
-    try {
-        // Get page data
-        $stmt = $conn->prepare("SELECT id, title, url, position, is_active FROM navbar_items WHERE id = :id");
-        $stmt->bindParam(':id', $pageId);
-        $stmt->execute();
+// Function to build a tree structure of menu items
+function buildMenuTree($items, $parentId = null) {
+    $tree = [];
+    
+    foreach ($items as $item) {
+        if ($item['parent_id'] == $parentId) {
+            $children = buildMenuTree($items, $item['id']);
+            if ($children) {
+                $item['children'] = $children;
+            }
+            $tree[] = $item;
+        }
+    }
+    
+    return $tree;
+}
+
+// Build menu tree
+$menuTree = buildMenuTree($menuItems);
+
+// Function to display menu tree with expandable sections
+function displayMenuTree($menuTree, $level = 0) {
+    $html = '';
+    
+    foreach ($menuTree as $index => $item) {
+        $isFirst = $index === 0;
+        $isLast = $index === count($menuTree) - 1;
+        $hasChildren = isset($item['children']) && !empty($item['children']);
+        $statusIcon = $item['is_active'] ? '<span class="text-green-500"><i class="bx bxs-check-circle"></i></span>' : '<span class="text-red-500"><i class="bx bxs-x-circle"></i></span>';
+        $pageIcon = $item['is_page'] ? ($item['file_exists'] ? '<span class="text-blue-600"><i class="bx bxs-file"></i></span>' : '<span class="text-yellow-500"><i class="bx bxs-file-blank"></i></span>') : '<span class="text-gray-400"><i class="bx bxs-folder"></i></span>';
+        $dropdownIcon = $item['has_dropdown'] ? '<span class="inline-flex items-center px-2 py-0.5 ml-2 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Dropdown</span>' : '';
+        $targetIcon = strpos($item['link'], 'http') === 0 ? '<span class="ml-1 text-gray-500" title="External Link"><i class="bx bx-link-external"></i></span>' : '';
+        $expanded = 'true'; // Default expanded
         
-        if ($stmt->rowCount() > 0) {
-            $pageData = $stmt->fetch();
+        // Create tree line graphics based on position
+        $treeLineClass = $level > 0 ? 'border-l' : '';
+        $lineGraphic = '';
+        
+        if ($level > 0) {
+            if ($isLast) {
+                $lineGraphic = '<span class="absolute top-0 left-0 h-1/2 border-l border-gray-300"></span>
+                               <span class="absolute top-1/2 left-0 h-0 w-4 border-t border-gray-300"></span>';
+            } else {
+                $lineGraphic = '<span class="absolute top-0 left-0 h-full border-l border-gray-300"></span>
+                               <span class="absolute top-1/2 left-0 h-0 w-4 border-t border-gray-300"></span>';
+            }
+        }
+        
+        // Start menu item
+        $html .= '<div class="menu-item relative pl-' . ($level * 4 + 4) . ' py-2" data-id="' . $item['id'] . '" data-parent="' . ($item['parent_id'] ?? 'null') . '" data-order="' . $item['order_index'] . '">';
+        
+        // Tree lines
+        if ($level > 0) {
+            $html .= '<div class="absolute left-0 top-0 h-full w-4">' . $lineGraphic . '</div>';
+        }
+        
+        // Item container with hover effect
+        $html .= '<div class="flex items-center p-2 rounded-lg ' . ($item['is_page'] ? 'bg-white' : 'bg-gray-50') . ' hover:bg-gray-50 transition-colors shadow-sm border ' . ($item['is_page'] ? 'border-gray-200' : 'border-gray-200 border-dashed') . '">';
+        
+        // Expand/collapse for items with children
+        if ($hasChildren) {
+            $html .= '<button type="button" class="toggle-children mr-2 text-gray-500 hover:text-gray-700 focus:outline-none" aria-expanded="' . $expanded . '">
+                        <i class="bx bx-chevron-down transition-transform" style="transform: rotate(' . ($expanded === 'true' ? '0deg' : '-90deg') . ');"></i>
+                    </button>';
+        } else {
+            $html .= '<span class="w-6 mr-2"></span>';
+        }
+        
+        // Item icon & status
+        $html .= '<span class="mr-2">' . $pageIcon . '</span>';
+        $html .= '<span class="mr-2">' . $statusIcon . '</span>';
+        
+        // Item title and badges
+        $html .= '<div class="flex-1">
+                    <span class="font-medium text-gray-800">' . htmlspecialchars($item['title']) . '</span>
+                    ' . $dropdownIcon . $targetIcon . '
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span class="inline-block mr-4">' . htmlspecialchars($item['link']) . '</span>
+                        <span class="inline-block">ID: ' . $item['id'] . '</span>
+                    </div>
+                  </div>';
+        
+        // Actions
+        if ($item['is_page']) {
+            // Get filename from link
+            $filename = trim($item['link'], '/');
+            // Remove .php extension if it exists
+            $filename = preg_replace('/\.php$/', '', $filename);
+            // Replace slashes with dashes for subfolder paths
+            $filename = str_replace('/', '-', $filename);
+            // Handle empty or index case
+            if (empty($filename) || $filename === 'index') {
+                $filename = 'home';
+            }
             
-            // If file-based page, redirect to specific edit page
-            if (strpos($pageData['url'], './') === 0) {
-                $pageName = pathinfo($pageData['url'], PATHINFO_FILENAME);
-                $editPage = "./edit-pages/{$pageName}.php";
-                
-                // Check if edit page exists, if not create it
-                if (!file_exists($editPage)) {
-                    // Create directory if it doesn't exist
-                    if (!file_exists("./edit-pages")) {
-                        mkdir("./edit-pages", 0755, true);
-                    }
-                    
-                    // Create empty edit page
-                    $template = '<?php
-// Start the session
-session_start();
-
-// Check if not logged in
-if(!isset($_SESSION["logged_in"]) || $_SESSION["logged_in"] !== true) {
-    header("Location: ../../../login.php");
-    exit;
+            $html .= '<div class="ml-4 flex items-center space-x-2">
+                        <a href="edit-pages/' . $filename . '.php" class="px-3 py-1 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors flex items-center">
+                            <i class="bx bx-edit mr-1"></i> Edit Page
+                        </a>
+                      </div>';
+        } else {
+            $html .= '<div class="ml-4 flex items-center space-x-2">
+                        <span class="px-3 py-1 bg-gray-100 text-gray-400 rounded-md flex items-center">
+                            <i class="bx bx-folder mr-1"></i> ' . ($item['has_dropdown'] ? 'Menu Group' : 'External Link') . '
+                        </span>
+                      </div>';
+        }
+        
+        $html .= '</div>'; // End item container
+        
+        // Children container
+        if ($hasChildren) {
+            $html .= '<div class="children mt-2' . ($expanded === 'false' ? ' hidden' : '') . '">';
+            $html .= displayMenuTree($item['children'], $level + 1);
+            $html .= '</div>';
+        }
+        
+        $html .= '</div>'; // End menu item
+    }
+    
+    return $html;
 }
-
-// Include database connection
-require_once("../../../config.php");
-
-// Initialize variables
-$message = "";
-$messageType = "";
-$username = $_SESSION["username"] ?? "Admin";
-$pageId = ' . $pageId . ';
-$pageTitle = "' . htmlspecialchars($pageData['title']) . '";
-$pageUrl = "' . htmlspecialchars($pageData['url']) . '";
-$pageFile = "../../../' . str_replace('./', '', $pageData['url']) . '";
-
-// Get page content if exists
-$pageContent = "";
-if (file_exists($pageFile)) {
-    $pageContent = file_get_contents($pageFile);
-}
-
-// Page editing functionality will be implemented here
 ?>
 
 <!doctype html>
 <html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit <?php echo htmlspecialchars($pageTitle); ?> - Akademi Merdeka</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Boxicons -->
-    <link rel="stylesheet" href="../../../assets/css/boxicons.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: "#f0f9ff",
-                            100: "#e0f2fe",
-                            200: "#bae6fd",
-                            300: "#7dd3fc",
-                            400: "#38bdf8",
-                            500: "#0ea5e9",
-                            600: "#0284c7",
-                            700: "#0369a1",
-                            800: "#075985",
-                            900: "#0c4a6e",
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-</head>
+<?php include('../components/head.php'); ?>
 <body class="bg-gray-50">
     <div class="min-h-screen flex flex-col lg:flex-row">
-        <!-- Sidebar Component -->
-        <?php include("../../components/sidebar.php"); ?>
+        <?php include('../components/sidebar.php'); ?>
         
-        <!-- Main Content -->
         <div class="flex-1 lg:ml-64">
-            <!-- Top Bar -->
             <div class="bg-white p-4 shadow flex justify-between items-center">
-                <h1 class="text-xl font-semibold text-gray-800">Edit <?php echo htmlspecialchars($pageTitle); ?></h1>
+                <h1 class="text-xl font-semibold text-gray-800">Manage Pages</h1>
                 <div class="flex items-center space-x-4">
-                    <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($username); ?></span>
+                    <div class="flex items-center space-x-2">
+                        <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($currentUsername); ?></span>
+                    </div>
                 </div>
             </div>
             
-            <!-- Page Content -->
+            <!-- Main Content -->
             <div class="p-6">
                 <?php if(!empty($message)): ?>
-                <div class="mb-6 p-4 rounded-lg <?php echo $messageType === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"; ?>">
-                    <?php echo $message; ?>
+                <div class="mb-6 p-4 rounded-lg shadow-sm border-l-4 <?php echo $messageType === 'success' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-red-500 text-red-700'; ?> flex items-center">
+                    <i class="bx <?php echo $messageType === 'success' ? 'bx-check-circle' : 'bx-error-circle'; ?> text-2xl mr-3"></i>
+                    <span><?php echo $message; ?></span>
                 </div>
                 <?php endif; ?>
                 
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="p-6 border-b border-gray-200">
-                        <div class="flex justify-between items-center">
-                            <h2 class="text-lg font-semibold text-gray-800">Edit <?php echo htmlspecialchars($pageTitle); ?> Content</h2>
-                            <a href="../manage-pages.php" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
-                                <i class="bx bx-arrow-back mr-1"></i> Back to Pages
+                <!-- Main container -->
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
+                        <div>
+                            <h2 class="text-lg font-semibold text-gray-800">Pages Structure</h2>
+                            <p class="text-sm text-gray-500 mt-1">Select a page to edit its content</p>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <a href="?" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="bx bx-refresh mr-1"></i> Refresh
+                            </a>
+                            <a href="../manage-navbar.php" class="inline-flex items-center px-3 py-1.5 border border-blue-500 shadow-sm text-sm font-medium rounded-md text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="bx bx-navigation mr-1"></i> Manage Navbar
                             </a>
                         </div>
                     </div>
                     
                     <div class="p-6">
-                        <div class="bg-blue-50 p-4 rounded-lg">
-                            <div class="flex">
-                                <div class="flex-shrink-0">
-                                    <i class="bx bx-info-circle text-blue-600 text-xl"></i>
-                                </div>
-                                <div class="ml-3">
-                                    <h3 class="text-sm font-medium text-blue-800">Edit Page Implementation</h3>
-                                    <div class="mt-2 text-sm text-blue-700">
-                                        <p>This is a placeholder for the <?php echo htmlspecialchars($pageTitle); ?> edit page.</p>
-                                        <p>The actual editing functionality will be implemented here.</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</body>
-</html>';
-                    
-                    file_put_contents($editPage, $template);
-                }
-                
-                // Redirect to the edit page
-                header("Location: $editPage");
-                exit;
-            } else {
-                $message = "This page cannot be edited as it is not a local file.";
-                $messageType = "error";
-            }
-        } else {
-            $message = "Page not found.";
-            $messageType = "error";
-        }
-    } catch(PDOException $e) {
-        $message = "Error fetching page data: " . $e->getMessage();
-        $messageType = "error";
-    }
-}
-?>
-
-<!doctype html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Page Management - Akademi Merdeka</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Boxicons -->
-    <link rel="stylesheet" href="../../assets/css/boxicons.min.css">
-    <!-- Custom Tailwind Config -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;300;400;500;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Poppins', sans-serif;
-        }
-    </style>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: {
-                            50: '#f0f9ff',
-                            100: '#e0f2fe',
-                            200: '#bae6fd',
-                            300: '#7dd3fc',
-                            400: '#38bdf8',
-                            500: '#0ea5e9',
-                            600: '#0284c7',
-                            700: '#0369a1',
-                            800: '#075985',
-                            900: '#0c4a6e',
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-</head>
-<body class="bg-gray-50">
-    <div class="min-h-screen flex flex-col lg:flex-row">
-        <!-- Include sidebar with correct path -->
-        <?php include('../components/sidebar.php'); ?>
-        
-        <!-- Main Content -->
-        <div class="flex-1 lg:ml-64">
-            <!-- Top Bar -->
-            <div class="bg-white p-4 shadow flex justify-between items-center">
-                <h1 class="text-xl font-semibold text-gray-800">Page Management</h1>
-                <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-2">
-                        <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($username); ?></span>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Page Management Content -->
-            <div class="p-6">
-                <?php if(!empty($message)): ?>
-                <div class="mb-6 p-4 rounded-lg <?php echo $messageType === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'; ?>">
-                    <?php echo $message; ?>
-                </div>
-                <?php endif; ?>
-                
-                <!-- Page Section -->
-                <div class="mb-6">
-                    <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                        <div class="p-6 border-b border-gray-200">
-                            <div class="flex justify-between items-center">
-                                <h2 class="text-lg font-semibold text-gray-800">Website Pages</h2>
-                            </div>
-                            <p class="text-sm text-gray-500 mt-1">Manage your website pages and content</p>
+                        <div class="flex space-x-4 mb-4">
+                            <button type="button" id="expand-all" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="bx bx-expand-alt mr-1"></i> Expand All
+                            </button>
+                            <button type="button" id="collapse-all" class="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                <i class="bx bx-collapse-alt mr-1"></i> Collapse All
+                            </button>
                         </div>
                         
-                        <div class="p-6">
-                            <!-- Pages List -->
-                            <div class="space-y-6">
-                                <?php if(empty($pages)): ?>
-                                <div class="bg-blue-50 p-4 rounded-lg">
-                                    <div class="flex">
-                                        <div class="flex-shrink-0">
-                                            <i class="bx bx-info-circle text-blue-600 text-xl"></i>
-                                        </div>
-                                        <div class="ml-3">
-                                            <h3 class="text-sm font-medium text-blue-800">No pages found</h3>
-                                            <div class="mt-2 text-sm text-blue-700">
-                                                <p>There are no pages in the navigation menu. Please check your database setup.</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                        <!-- Menu Tree View -->
+                        <div id="menu-tree" class="menu-tree">
+                            <?php echo displayMenuTree($menuTree); ?>
+                        </div>
+                        
+                        <!-- Legend -->
+                        <div class="bg-gray-50 mt-4 p-4 rounded-md border border-gray-200">
+                            <h3 class="text-sm font-medium text-gray-700 mb-2">Legend:</h3>
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div class="flex items-center">
+                                    <span class="text-blue-600 mr-2"><i class="bx bxs-file"></i></span>
+                                    <span class="text-sm text-gray-600">Page with file</span>
                                 </div>
-                                <?php else: ?>
-                                <div class="overflow-x-auto">
-                                    <table class="min-w-full divide-y divide-gray-200">
-                                        <thead class="bg-gray-50">
-                                            <tr>
-                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
-                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody class="bg-white divide-y divide-gray-200">
-                                            <?php foreach($pages as $page): ?>
-                                            <tr class="bg-gray-50">
-                                                <td class="px-6 py-4 whitespace-nowrap font-medium">
-                                                    <?php echo htmlspecialchars($page['title']); ?>
-                                                    <?php if($page['children_count'] > 0): ?>
-                                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                                                        Dropdown
-                                                    </span>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    <?php echo htmlspecialchars($page['url']); ?>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                    <?php 
-                                                    if(strpos($page['url'], './') === 0) {
-                                                        echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Local Page</span>';
-                                                    } elseif(strpos($page['url'], 'http') === 0) {
-                                                        echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">External Link</span>';
-                                                    } else {
-                                                        echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Other</span>';
-                                                    }
-                                                    ?>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap">
-                                                    <?php if($page['is_active']): ?>
-                                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                        Active
-                                                    </span>
-                                                    <?php else: ?>
-                                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                        Inactive
-                                                    </span>
-                                                    <?php endif; ?>
-                                                </td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                    <?php if(strpos($page['url'], './') === 0): ?>
-                                                    <a href="?id=<?php echo $page['id']; ?>" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors">
-                                                        <i class='bx bx-edit'></i> Edit Content
-                                                    </a>
-                                                    <?php elseif($page['url'] !== '#'): ?>
-                                                    <span class="text-gray-400">Not Editable</span>
-                                                    <?php else: ?>
-                                                    <span class="text-gray-400">Dropdown Parent</span>
-                                                    <?php endif; ?>
-                                                </td>
-                                            </tr>
-                                            
-                                            <?php if(!empty($page['children'])): ?>
-                                                <?php foreach($page['children'] as $child): ?>
-                                                <tr>
-                                                    <td class="px-6 py-4 whitespace-nowrap pl-12">
-                                                        <i class='bx bx-subdirectory-right mr-2 text-gray-400'></i>
-                                                        <?php echo htmlspecialchars($child['title']); ?>
-                                                    </td>
-                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        <?php echo htmlspecialchars($child['url']); ?>
-                                                    </td>
-                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                        <?php 
-                                                        if(strpos($child['url'], './') === 0) {
-                                                            echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Local Page</span>';
-                                                        } elseif(strpos($child['url'], 'http') === 0) {
-                                                            echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">External Link</span>';
-                                                        } else {
-                                                            echo '<span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">Other</span>';
-                                                        }
-                                                        ?>
-                                                    </td>
-                                                    <td class="px-6 py-4 whitespace-nowrap">
-                                                        <?php if($child['is_active']): ?>
-                                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                                            Active
-                                                        </span>
-                                                        <?php else: ?>
-                                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                                                            Inactive
-                                                        </span>
-                                                        <?php endif; ?>
-                                                    </td>
-                                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                        <?php if(strpos($child['url'], './') === 0): ?>
-                                                        <a href="?id=<?php echo $child['id']; ?>" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors">
-                                                            <i class='bx bx-edit'></i> Edit Content
-                                                        </a>
-                                                        <?php else: ?>
-                                                        <span class="text-gray-400">Not Editable</span>
-                                                        <?php endif; ?>
-                                                    </td>
-                                                </tr>
-                                                <?php endforeach; ?>
-                                            <?php endif; ?>
-                                            <?php endforeach; ?>
-                                        </tbody>
-                                    </table>
+                                <div class="flex items-center">
+                                    <span class="text-yellow-500 mr-2"><i class="bx bxs-file-blank"></i></span>
+                                    <span class="text-sm text-gray-600">Page without file</span>
                                 </div>
-                                <?php endif; ?>
+                                <div class="flex items-center">
+                                    <span class="text-gray-400 mr-2"><i class="bx bxs-folder"></i></span>
+                                    <span class="text-sm text-gray-600">Menu item (not a page)</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="text-green-500 mr-2"><i class="bx bxs-check-circle"></i></span>
+                                    <span class="text-sm text-gray-600">Active item</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="text-red-500 mr-2"><i class="bx bxs-x-circle"></i></span>
+                                    <span class="text-sm text-gray-600">Inactive item</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="inline-flex items-center px-2 py-0.5 mr-2 rounded-full text-xs font-medium bg-purple-100 text-purple-800">Dropdown</span>
+                                    <span class="text-sm text-gray-600">Dropdown menu</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Help Section -->
-                <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <div class="p-6 border-b border-gray-200">
-                        <h2 class="text-lg font-semibold text-gray-800">Page Management Help</h2>
-                    </div>
+                <!-- Page Management Help Box -->
+                <div class="mt-6 bg-blue-50 rounded-lg shadow-sm overflow-hidden">
                     <div class="p-6">
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div>
-                                <h3 class="text-base font-medium text-gray-800 mb-2">Edit Content</h3>
-                                <ul class="space-y-2 text-sm text-gray-600">
-                                    <li class="flex items-start">
-                                        <i class="bx bx-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                        <span>Only local pages (.php files) can be edited</span>
-                                    </li>
-                                    <li class="flex items-start">
-                                        <i class="bx bx-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                        <span>Click "Edit Content" to modify a page's content</span>
-                                    </li>
-                                    <li class="flex items-start">
-                                        <i class="bx bx-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                        <span>External links and dropdown parents cannot be edited</span>
-                                    </li>
-                                </ul>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <i class="bx bx-info-circle text-blue-600 text-2xl"></i>
                             </div>
-                            
-                            <div>
-                                <h3 class="text-base font-medium text-gray-800 mb-2">Page Types</h3>
-                                <ul class="space-y-2 text-sm text-gray-600">
-                                    <li class="flex items-start">
-                                        <i class="bx bx-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                        <span><b>Local Page:</b> Internal .php files</span>
-                                    </li>
-                                    <li class="flex items-start">
-                                        <i class="bx bx-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                        <span><b>External Link:</b> Links to other websites</span>
-                                    </li>
-                                    <li class="flex items-start">
-                                        <i class="bx bx-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                        <span><b>Dropdown Parent:</b> Contains submenu items</span>
-                                    </li>
-                                </ul>
-                            </div>
-                            
-                            <div>
-                                <h3 class="text-base font-medium text-gray-800 mb-2">Navigation Management</h3>
-                                <ul class="space-y-2 text-sm text-gray-600">
-                                    <li class="flex items-start">
-                                        <i class="bx bx-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                        <span>To edit navigation structure, go to "Navbar" section</span>
-                                    </li>
-                                    <li class="flex items-start">
-                                        <i class="bx bx-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                        <span>Change page order, titles, or URLs in the Navbar manager</span>
-                                    </li>
-                                    <li class="flex items-start">
-                                        <i class="bx bx-info-circle text-blue-500 mt-0.5 mr-2"></i>
-                                        <span>This section is for content editing only</span>
-                                    </li>
-                                </ul>
+                            <div class="ml-4">
+                                <h3 class="text-lg font-medium text-blue-800 mb-2">How to Edit Pages</h3>
+                                <p class="text-sm text-blue-700 mb-4">Click the "Edit Page" button next to any page in the list to modify its content. This will take you directly to the edit page for that specific content file in the <code>admin/pages/edit-pages/</code> directory. Only actual pages (with the file icon) can be edited.</p>
+                                <p class="text-sm text-blue-700">The edit page filenames are derived from the page URL in the navigation structure. For example, a page with URL "about-us" will have an edit file named "about-us.php" in the edit-pages directory.</p>
+                                <p class="text-sm text-blue-700 mt-2">To manage the navigation structure or create new pages, use the <a href="../manage-navbar.php" class="text-blue-800 underline font-medium">Navbar Manager</a>.</p>
                             </div>
                         </div>
                     </div>
                 </div>
                 
                 <!-- Footer -->
-                <div class="text-center text-gray-500 text-sm mt-6">
+                <div class="text-center text-gray-500 text-sm mt-8 pb-6">
                     <p>&copy; 2023 Akademi Merdeka Admin Dashboard. All rights reserved.</p>
                 </div>
             </div>
         </div>
     </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Toggle children visibility
+            const toggleButtons = document.querySelectorAll('.toggle-children');
+            toggleButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const menuItem = this.closest('.menu-item');
+                    const childrenContainer = menuItem.querySelector('.children');
+                    const icon = this.querySelector('i');
+                    
+                    if (childrenContainer) {
+                        const isExpanded = this.getAttribute('aria-expanded') === 'true';
+                        this.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+                        childrenContainer.classList.toggle('hidden');
+                        
+                        // Rotate icon
+                        icon.style.transform = isExpanded ? 'rotate(-90deg)' : 'rotate(0deg)';
+                    }
+                });
+            });
+            
+            // Expand all button
+            document.getElementById('expand-all')?.addEventListener('click', function() {
+                document.querySelectorAll('.children').forEach(container => {
+                    container.classList.remove('hidden');
+                });
+                
+                document.querySelectorAll('.toggle-children').forEach(button => {
+                    button.setAttribute('aria-expanded', 'true');
+                    button.querySelector('i').style.transform = 'rotate(0deg)';
+                });
+            });
+            
+            // Collapse all button
+            document.getElementById('collapse-all')?.addEventListener('click', function() {
+                document.querySelectorAll('.children').forEach(container => {
+                    container.classList.add('hidden');
+                });
+                
+                document.querySelectorAll('.toggle-children').forEach(button => {
+                    button.setAttribute('aria-expanded', 'false');
+                    button.querySelector('i').style.transform = 'rotate(-90deg)';
+                });
+            });
+        });
+    </script>
 </body>
 </html>

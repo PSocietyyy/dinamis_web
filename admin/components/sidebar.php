@@ -13,12 +13,15 @@ $currentUsername = $_SESSION['username'] ?? 'Admin';
 if ($in_edit_pages) {
     $root_path = "../../"; // From edit-pages to admin root
     $pages_path = "../"; // From edit-pages to pages
+    $assets_path = "../../../assets/"; // Path to assets directory
 } elseif ($in_pages) {
     $root_path = "../"; // From pages to admin root
     $pages_path = "./"; // Already in pages
+    $assets_path = "../../assets/"; // Path to assets directory
 } else {
     $root_path = "./"; // Already in admin root
     $pages_path = "pages/"; // From admin root to pages
+    $assets_path = "../assets/"; // Path to assets directory
 }
 
 // Check which page is active for highlighting
@@ -59,16 +62,6 @@ $is_pages = $current_page == 'manage-pages.php' || $in_edit_pages;
             <a href="<?php echo $root_path; ?>pages/manage-pages.php" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all <?php echo $is_pages ? 'bg-white/20 shadow-sm' : ''; ?>">
                 <i class='bx bxs-file text-xl mr-3'></i>
                 <span>Pages</span>
-            </a>
-            
-            <a href="#" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all">
-                <i class='bx bxs-news text-xl mr-3'></i>
-                <span>Blog</span>
-            </a>
-            
-            <a href="#" class="group flex items-center px-4 py-3 mb-1 text-white hover:bg-white/10 rounded-lg transition-all">
-                <i class='bx bxs-server text-xl mr-3'></i>
-                <span>Services</span>
             </a>
         </nav>
         

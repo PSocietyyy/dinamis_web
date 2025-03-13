@@ -1,11 +1,27 @@
+<?php
+// Determine which directory level we're at
+$current_dir = dirname($_SERVER['PHP_SELF']);
+$in_edit_pages = strpos($current_dir, '/edit-pages') !== false;
+$in_pages = strpos($current_dir, '/pages') !== false && !$in_edit_pages;
+$in_admin_root = !$in_pages && !$in_edit_pages;
+
+// Set correct path for asset loading
+if ($in_edit_pages) {
+    $assets_path = "../../../assets/"; // From edit-pages to assets
+} elseif ($in_pages) {
+    $assets_path = "../../assets/"; // From pages to assets
+} else {
+    $assets_path = "../assets/"; // From admin root to assets
+}
+?>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin - Akademi Merdeka</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Boxicons -->
-    <link rel="stylesheet" href="../assets/css/boxicons.min.css">
+    <!-- Boxicons - with correct path based on directory level -->
+    <link rel="stylesheet" href="<?php echo $assets_path; ?>css/boxicons.min.css">
     <!-- Custom Tailwind Config -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@100;300;400;500;700&display=swap" rel="stylesheet">
     <style>

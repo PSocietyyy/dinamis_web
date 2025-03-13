@@ -56,45 +56,12 @@ function isDescendantOf($conn, $itemId, $potentialParentId) {
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Add new menu item
+    // Add new menu item - DISABLED
     if (isset($_POST['add_item'])) {
-        $title = trim($_POST['title']);
-        $link = trim($_POST['link']);
-        $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null;
-        $has_dropdown = isset($_POST['has_dropdown']) ? 1 : 0;
-        $target = !empty($_POST['target']) ? trim($_POST['target']) : '_self';
-        
-        // Get the highest order_index for the selected parent
-        try {
-            if ($parent_id) {
-                $stmt = $conn->prepare("SELECT MAX(order_index) FROM navbar_items WHERE parent_id = :parent_id");
-                $stmt->bindParam(':parent_id', $parent_id);
-            } else {
-                $stmt = $conn->prepare("SELECT MAX(order_index) FROM navbar_items WHERE parent_id IS NULL");
-            }
-            $stmt->execute();
-            $max_order = $stmt->fetchColumn();
-            $order_index = $max_order ? $max_order + 1 : 1;
-            
-            // Insert new item
-            $stmt = $conn->prepare("INSERT INTO navbar_items (title, link, parent_id, has_dropdown, target, order_index) 
-                                  VALUES (:title, :link, :parent_id, :has_dropdown, :target, :order_index)");
-            $stmt->bindParam(':title', $title);
-            $stmt->bindParam(':link', $link);
-            $stmt->bindParam(':parent_id', $parent_id);
-            $stmt->bindParam(':has_dropdown', $has_dropdown);
-            $stmt->bindParam(':target', $target);
-            $stmt->bindParam(':order_index', $order_index);
-            $stmt->execute();
-            
-            $message = "Menu item added successfully!";
-            $messageType = "success";
-            $activeTab = 'menu-items';
-        } catch(PDOException $e) {
-            $message = "Error adding menu item: " . $e->getMessage();
-            $messageType = "error";
-            $activeTab = 'menu-items';
-        }
+        // This functionality has been disabled
+        $message = "Adding new menu items has been disabled by the administrator.";
+        $messageType = "error";
+        $activeTab = 'menu-items';
     }
     
     // Update existing menu item
@@ -104,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $link = trim($_POST['link']);
         $parent_id = !empty($_POST['parent_id']) ? (int)$_POST['parent_id'] : null;
         $has_dropdown = isset($_POST['has_dropdown']) ? 1 : 0;
+        $is_page = isset($_POST['is_page']) ? 1 : 0;
         $target = !empty($_POST['target']) ? trim($_POST['target']) : '_self';
         $is_active = isset($_POST['is_active']) ? 1 : 0;
         
@@ -192,15 +160,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $settings = [
                 // Logo settings
                 'logo_alt' => trim($_POST['logo_alt']),
-                'logo_height' => (int)$_POST['logo_height'],
                 'logo_two_alt' => trim($_POST['logo_two_alt']),
-                'logo_two_height' => (int)$_POST['logo_two_height'],
                 
                 // Mobile logo settings
                 'mobile_logo_alt' => trim($_POST['mobile_logo_alt']),
-                'mobile_logo_height' => (int)$_POST['mobile_logo_height'],
                 'mobile_logo_two_alt' => trim($_POST['mobile_logo_two_alt']),
-                'mobile_logo_two_height' => (int)$_POST['mobile_logo_two_height'],
                 
                 // Action button settings
                 'action_button_text' => trim($_POST['action_button_text']),
@@ -355,6 +319,10 @@ function displayMenuTree($menuTree, $level = 0) {
         $targetIcon = $item['target'] === '_blank' ? '<span class="ml-1 text-gray-500" title="Opens in new tab"><i class="bx bx-link-external"></i></span>' : '';
         $expanded = 'true'; // Default expanded
         
+        // Check if it's a potential page (not has_dropdown and not external link)
+        $isPage = (!$item['has_dropdown'] && strpos($item['link'], 'http') !== 0);
+        $pageIcon = $isPage ? '<span class="ml-1 text-green-600" title="Page"><i class="bx bx-file"></i></span>' : '';
+        
         // Create tree line graphics based on position
         $treeLineClass = $level > 0 ? 'border-l' : '';
         $lineGraphic = '';
@@ -395,7 +363,7 @@ function displayMenuTree($menuTree, $level = 0) {
         // Item title and badges
         $html .= '<div class="flex-1">
                     <span class="font-medium text-gray-800">' . htmlspecialchars($item['title']) . '</span>
-                    ' . $dropdownIcon . $targetIcon . '
+                    ' . $dropdownIcon . $targetIcon . $pageIcon . '
                     <div class="text-xs text-gray-500 mt-1">
                         <span class="inline-block mr-4">' . htmlspecialchars($item['link']) . '</span>
                         <span class="inline-block">ID: ' . $item['id'] . '</span>
@@ -529,6 +497,10 @@ function displayMenuTree($menuTree, $level = 0) {
                                             <span class="mr-2"><i class="bx bx-chevron-down text-gray-500"></i></span>
                                             <span class="text-sm text-gray-600">Expand/collapse submenu</span>
                                         </div>
+                                        <div class="flex items-center">
+                                            <span class="mr-2"><i class="bx bx-file text-green-600"></i></span>
+                                            <span class="text-sm text-gray-600">Page content</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -566,15 +538,15 @@ function displayMenuTree($menuTree, $level = 0) {
                         </div>
                     </div>
                     
-                    <!-- Add/Edit Menu Item Form -->
+                    <!-- Edit Menu Item Form -->
                     <div class="lg:col-span-1">
                         <div class="bg-white rounded-lg shadow-sm overflow-hidden">
                             <div class="px-6 py-5 border-b border-gray-200">
                                 <h2 class="text-lg font-semibold text-gray-800">
-                                    <?php echo $editItem ? 'Edit Menu Item' : 'Add New Menu Item'; ?>
+                                    <?php echo $editItem ? 'Edit Menu Item' : 'Menu Item Info'; ?>
                                 </h2>
                                 <p class="text-sm text-gray-500 mt-1">
-                                    <?php echo $editItem ? 'Modify the selected menu item' : 'Create a new navbar menu item'; ?>
+                                    <?php echo $editItem ? 'Modify the selected menu item' : 'Select a menu item to edit'; ?>
                                 </p>
                             </div>
                             
@@ -585,11 +557,12 @@ function displayMenuTree($menuTree, $level = 0) {
                                     <?php endif; ?>
                                     
                                     <div class="space-y-5">
+                                        <?php if($editItem): ?>
                                         <div>
                                             <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Title <span class="text-red-500">*</span></label>
                                             <input type="text" id="title" name="title" required
                                                 placeholder="e.g. Home, About Us, Contact"
-                                                value="<?php echo $editItem ? htmlspecialchars($editItem['title']) : ''; ?>"
+                                                value="<?php echo htmlspecialchars($editItem['title']); ?>"
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                         </div>
                                         
@@ -597,9 +570,9 @@ function displayMenuTree($menuTree, $level = 0) {
                                             <label for="link" class="block text-sm font-medium text-gray-700 mb-1">Link/URL <span class="text-red-500">*</span></label>
                                             <input type="text" id="link" name="link" required
                                                 placeholder="e.g. /, about-us, contact"
-                                                value="<?php echo $editItem ? htmlspecialchars($editItem['link']) : ''; ?>"
+                                                value="<?php echo htmlspecialchars($editItem['link']); ?>"
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                            <p class="mt-1 text-xs text-gray-500">Use # for dropdown parents</p>
+                                            <p class="mt-1 text-xs text-gray-500">Use # for dropdown parents or external URLs. Use simple paths like 'about-us' for pages.</p>
                                         </div>
                                         
                                         <div>
@@ -608,8 +581,8 @@ function displayMenuTree($menuTree, $level = 0) {
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                                                 <option value="">None (Top Level)</option>
                                                 <?php foreach($parentItems as $parent): ?>
-                                                    <?php if(!$editItem || $parent['id'] != $editItem['id']): ?>
-                                                    <option value="<?php echo $parent['id']; ?>" <?php echo ($editItem && $editItem['parent_id'] == $parent['id']) ? 'selected' : ''; ?>>
+                                                    <?php if($parent['id'] != $editItem['id']): ?>
+                                                    <option value="<?php echo $parent['id']; ?>" <?php echo ($editItem['parent_id'] == $parent['id']) ? 'selected' : ''; ?>>
                                                         <?php echo htmlspecialchars($parent['title']); ?>
                                                     </option>
                                                     <?php endif; ?>
@@ -622,8 +595,8 @@ function displayMenuTree($menuTree, $level = 0) {
                                             <label for="target" class="block text-sm font-medium text-gray-700 mb-1">Open In</label>
                                             <select id="target" name="target" 
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                                                <option value="_self" <?php echo ($editItem && $editItem['target'] == '_self') ? 'selected' : ''; ?>>Same Window (_self)</option>
-                                                <option value="_blank" <?php echo ($editItem && $editItem['target'] == '_blank') ? 'selected' : ''; ?>>New Tab (_blank)</option>
+                                                <option value="_self" <?php echo ($editItem['target'] == '_self') ? 'selected' : ''; ?>>Same Window (_self)</option>
+                                                <option value="_blank" <?php echo ($editItem['target'] == '_blank') ? 'selected' : ''; ?>>New Tab (_blank)</option>
                                             </select>
                                         </div>
                                         
@@ -631,7 +604,7 @@ function displayMenuTree($menuTree, $level = 0) {
                                             <div class="relative flex items-start">
                                                 <div class="flex items-center h-5">
                                                     <input type="checkbox" name="has_dropdown" id="has_dropdown" 
-                                                        <?php echo ($editItem && $editItem['has_dropdown'] == 1) ? 'checked' : ''; ?>
+                                                        <?php echo ($editItem['has_dropdown'] == 1) ? 'checked' : ''; ?>
                                                         class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                                                 </div>
                                                 <div class="ml-3 text-sm">
@@ -641,12 +614,25 @@ function displayMenuTree($menuTree, $level = 0) {
                                             </div>
                                         </div>
                                         
-                                        <?php if($editItem): ?>
+                                        <div class="pt-2">
+                                            <div class="relative flex items-start">
+                                                <div class="flex items-center h-5">
+                                                    <input type="checkbox" name="is_page" id="is_page" 
+                                                        <?php echo ($editItem['has_dropdown'] == 0 && strpos($editItem['link'], 'http') !== 0) ? 'checked' : ''; ?>
+                                                        class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                                </div>
+                                                <div class="ml-3 text-sm">
+                                                    <label for="is_page" class="font-medium text-gray-700">Is a Page</label>
+                                                    <p class="text-gray-500">This item will have a content page. URLs should be simple paths (e.g., about-us).</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
                                         <div class="pt-2">
                                             <div class="relative flex items-start">
                                                 <div class="flex items-center h-5">
                                                     <input type="checkbox" name="is_active" id="is_active"
-                                                        <?php echo ($editItem && $editItem['is_active'] == 1) ? 'checked' : ''; ?>
+                                                        <?php echo ($editItem['is_active'] == 1) ? 'checked' : ''; ?>
                                                         class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
                                                 </div>
                                                 <div class="ml-3 text-sm">
@@ -654,6 +640,16 @@ function displayMenuTree($menuTree, $level = 0) {
                                                     <p class="text-gray-500">Display this item in the navbar</p>
                                                 </div>
                                             </div>
+                                        </div>
+                                        <?php else: ?>
+                                        <div class="bg-blue-50 p-6 rounded-lg text-center">
+                                            <div class="text-3xl text-blue-300 mb-3">
+                                                <i class="bx bx-menu"></i>
+                                            </div>
+                                            <h3 class="text-lg font-medium text-blue-900 mb-2">No Item Selected</h3>
+                                            <p class="text-sm text-blue-700">
+                                                Please select a menu item from the list to edit its properties.
+                                            </p>
                                         </div>
                                         <?php endif; ?>
                                     </div>
@@ -668,53 +664,16 @@ function displayMenuTree($menuTree, $level = 0) {
                                             <i class="bx bx-trash mr-2"></i> Delete
                                         </button>
                                         <?php else: ?>
-                                        <button type="submit" name="add_item" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                            <i class="bx bx-plus mr-2"></i> Add Item
-                                        </button>
-                                        
-                                        <a href="manage-navbar.php" class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                            Cancel
-                                        </a>
+                                        <div class="bg-gray-100 p-4 rounded-md text-sm text-gray-600 w-full">
+                                            <i class="bx bx-info-circle text-blue-500 mr-1"></i>
+                                            Select a menu item from the list to edit its properties
+                                        </div>
                                         <?php endif; ?>
                                     </div>
                                 </form>
                             </div>
                         </div>
                         
-                        <!-- Dropdown Structure Guidelines -->
-                        <div class="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-sm overflow-hidden">
-                            <div class="px-6 py-4 border-b border-blue-100">
-                                <h3 class="text-base font-medium text-blue-800 flex items-center">
-                                    <i class="bx bx-info-circle text-lg mr-2"></i> Dropdown Structure
-                                </h3>
-                            </div>
-                            <div class="px-6 py-4">
-                                <div class="text-sm text-blue-800 mb-4">
-                                    To create a dropdown menu, follow these steps:
-                                </div>
-                                <ol class="list-decimal pl-5 space-y-3 text-sm text-blue-800">
-                                    <li class="pb-2 border-b border-blue-100">
-                                        <strong>Create a parent item</strong>: 
-                                        <p class="mt-1 text-blue-600">Set the link to "#" and check "Has Dropdown"</p>
-                                    </li>
-                                    <li class="pb-2 border-b border-blue-100">
-                                        <strong>Add child items</strong>: 
-                                        <p class="mt-1 text-blue-600">Create new items and select the parent item from the dropdown</p>
-                                    </li>
-                                    <li>
-                                        <strong>Structure example</strong>:
-                                        <div class="mt-2 bg-white bg-opacity-50 p-3 rounded-md">
-                                            <div class="font-medium">Products (parent, has_dropdown=true)</div>
-                                            <div class="pl-4 mt-1">
-                                                <div>└─ Product A (child)</div>
-                                                <div>└─ Product B (child)</div>
-                                                <div>└─ Product C (child)</div>
-                                            </div>
-                                        </div>
-                                    </li>
-                                </ol>
-                            </div>
-                        </div>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -758,17 +717,10 @@ function displayMenuTree($menuTree, $level = 0) {
                                             <input type="hidden" name="logo_path" value="<?php echo htmlspecialchars($navbarSettings['logo_path'] ?? ''); ?>">
                                         </div>
                                         
-                                        <div class="grid grid-cols-2 gap-4 mt-3">
-                                            <div>
-                                                <label class="block text-sm text-gray-600 mb-1">Height (px):</label>
-                                                <input type="number" name="logo_height" value="<?php echo (int)($navbarSettings['logo_height'] ?? 64); ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm text-gray-600 mb-1">Alt Text:</label>
-                                                <input type="text" name="logo_alt" value="<?php echo htmlspecialchars($navbarSettings['logo_alt'] ?? 'Logo'); ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                            </div>
+                                        <div class="mt-3">
+                                            <label class="block text-sm text-gray-600 mb-1">Alt Text:</label>
+                                            <input type="text" name="logo_alt" value="<?php echo htmlspecialchars($navbarSettings['logo_alt'] ?? 'Logo'); ?>" 
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                                         </div>
                                     </div>
                                     
@@ -793,17 +745,10 @@ function displayMenuTree($menuTree, $level = 0) {
                                             <input type="hidden" name="logo_two_path" value="<?php echo htmlspecialchars($navbarSettings['logo_two_path'] ?? ''); ?>">
                                         </div>
                                         
-                                        <div class="grid grid-cols-2 gap-4 mt-3">
-                                            <div>
-                                                <label class="block text-sm text-gray-600 mb-1">Height (px):</label>
-                                                <input type="number" name="logo_two_height" value="<?php echo (int)($navbarSettings['logo_two_height'] ?? 64); ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm text-gray-600 mb-1">Alt Text:</label>
-                                                <input type="text" name="logo_two_alt" value="<?php echo htmlspecialchars($navbarSettings['logo_two_alt'] ?? 'Logo'); ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                            </div>
+                                        <div class="mt-3">
+                                            <label class="block text-sm text-gray-600 mb-1">Alt Text:</label>
+                                            <input type="text" name="logo_two_alt" value="<?php echo htmlspecialchars($navbarSettings['logo_two_alt'] ?? 'Logo'); ?>" 
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                                         </div>
                                     </div>
                                 </div>
@@ -838,17 +783,10 @@ function displayMenuTree($menuTree, $level = 0) {
                                             <input type="hidden" name="mobile_logo_path" value="<?php echo htmlspecialchars($navbarSettings['mobile_logo_path'] ?? ''); ?>">
                                         </div>
                                         
-                                        <div class="grid grid-cols-2 gap-4 mt-3">
-                                            <div>
-                                                <label class="block text-sm text-gray-600 mb-1">Height (px):</label>
-                                                <input type="number" name="mobile_logo_height" value="<?php echo (int)($navbarSettings['mobile_logo_height'] ?? 64); ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm text-gray-600 mb-1">Alt Text:</label>
-                                                <input type="text" name="mobile_logo_alt" value="<?php echo htmlspecialchars($navbarSettings['mobile_logo_alt'] ?? 'Logo'); ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                            </div>
+                                        <div class="mt-3">
+                                            <label class="block text-sm text-gray-600 mb-1">Alt Text:</label>
+                                            <input type="text" name="mobile_logo_alt" value="<?php echo htmlspecialchars($navbarSettings['mobile_logo_alt'] ?? 'Logo'); ?>" 
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                                         </div>
                                     </div>
                                     
@@ -873,17 +811,10 @@ function displayMenuTree($menuTree, $level = 0) {
                                             <input type="hidden" name="mobile_logo_two_path" value="<?php echo htmlspecialchars($navbarSettings['mobile_logo_two_path'] ?? ''); ?>">
                                         </div>
                                         
-                                        <div class="grid grid-cols-2 gap-4 mt-3">
-                                            <div>
-                                                <label class="block text-sm text-gray-600 mb-1">Height (px):</label>
-                                                <input type="number" name="mobile_logo_two_height" value="<?php echo (int)($navbarSettings['mobile_logo_two_height'] ?? 64); ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                            </div>
-                                            <div>
-                                                <label class="block text-sm text-gray-600 mb-1">Alt Text:</label>
-                                                <input type="text" name="mobile_logo_two_alt" value="<?php echo htmlspecialchars($navbarSettings['mobile_logo_two_alt'] ?? 'Logo'); ?>" 
-                                                       class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                            </div>
+                                        <div class="mt-3">
+                                            <label class="block text-sm text-gray-600 mb-1">Alt Text:</label>
+                                            <input type="text" name="mobile_logo_two_alt" value="<?php echo htmlspecialchars($navbarSettings['mobile_logo_two_alt'] ?? 'Logo'); ?>" 
+                                                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                                         </div>
                                     </div>
                                 </div>
@@ -893,11 +824,11 @@ function displayMenuTree($menuTree, $level = 0) {
                                     <div class="flex items-start">
                                         <i class="bx bx-info-circle mt-0.5 mr-2 text-blue-500"></i>
                                         <div>
-                                            <strong>Recommended logo sizes:</strong>
+                                            <strong>Recommended logo formats:</strong>
                                             <ul class="mt-1 ml-4 list-disc space-y-1">
-                                                <li>Logo dimensions: 180-240px width, 60-80px height</li>
                                                 <li>File formats: PNG, SVG, WEBP recommended (with transparency)</li>
                                                 <li>Maximum file size: 500KB</li>
+                                                <li>Logo will maintain its aspect ratio automatically</li>
                                             </ul>
                                         </div>
                                     </div>
@@ -978,11 +909,23 @@ function displayMenuTree($menuTree, $level = 0) {
     <script>
         // Toggle parent_id field based on "Has Dropdown" checkbox
         const hasDropdownCheckbox = document.getElementById('has_dropdown');
-        if (hasDropdownCheckbox) {
+        const isPageCheckbox = document.getElementById('is_page');
+        
+        if (hasDropdownCheckbox && isPageCheckbox) {
+            // Make has_dropdown and is_page mutually exclusive
             hasDropdownCheckbox.addEventListener('change', function() {
-                const linkField = document.getElementById('link');
-                if (this.checked && linkField.value === '') {
-                    linkField.value = '#';
+                if (this.checked) {
+                    isPageCheckbox.checked = false;
+                    const linkField = document.getElementById('link');
+                    if (linkField.value === '') {
+                        linkField.value = '#';
+                    }
+                }
+            });
+            
+            isPageCheckbox.addEventListener('change', function() {
+                if (this.checked) {
+                    hasDropdownCheckbox.checked = false;
                 }
             });
         }
@@ -1030,6 +973,26 @@ function displayMenuTree($menuTree, $level = 0) {
                     button.querySelector('i').style.transform = 'rotate(-90deg)';
                 });
             });
+            
+            // Handle automatic URL generation from title
+            const titleInput = document.getElementById('title');
+            const linkInput = document.getElementById('link');
+            
+            if (titleInput && linkInput && isPageCheckbox) {
+                // When checking "Is a Page", generate URL slug if empty or "#"
+                isPageCheckbox.addEventListener('change', function() {
+                    if (this.checked && (linkInput.value === '' || linkInput.value === '#')) {
+                        const slug = titleInput.value.toLowerCase()
+                            .replace(/\s+/g, '-')
+                            .replace(/[^\w\-]+/g, '')
+                            .replace(/\-\-+/g, '-')
+                            .replace(/^-+/, '')
+                            .replace(/-+$/, '');
+                        
+                        linkInput.value = slug;
+                    }
+                });
+            }
         });
     </script>
 </body>
