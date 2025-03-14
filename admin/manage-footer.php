@@ -115,7 +115,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'company_address' => $companyAddress,
                 'company_phone' => $_POST['phone'] ?? '',
                 'footer_copyright' => $_POST['copyright'] ?? '',
-                'logo_footer' => $logoPath
+                'logo_footer' => $logoPath,
+                // Add heading dynamic titles
+                'contact_title' => $_POST['contact_title'] ?? 'Hubungi Kami',
+                'services_title' => $_POST['services_title'] ?? 'Layanan Kami'
             ];
             
             foreach ($settings as $key => $value) {
@@ -214,7 +217,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $settings = [
                 'bulletin_title' => $_POST['bulletin_title'] ?? 'Bulletin',
-                'bulletin_text' => $_POST['bulletin_text'] ?? ''
+                'bulletin_text' => $_POST['bulletin_text'] ?? '',
+                // Add new email form settings
+                'bulletin_email_placeholder' => $_POST['bulletin_email_placeholder'] ?? 'Enter Your Email',
+                'bulletin_success_message' => $_POST['bulletin_success_message'] ?? 'Thank you for subscribing!',
+                'bulletin_error_message' => $_POST['bulletin_error_message'] ?? 'Something went wrong. Please try again.'
             ];
             
             foreach ($settings as $key => $value) {
@@ -350,33 +357,53 @@ include('components/head.php')
                                             value="<?php echo htmlspecialchars($settings['company_phone'] ?? '+62 877-3542-6107'); ?>"
                                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     </div>
-                                    
-                                    <div class="col-span-1 md:col-span-2">
-                                        <label for="company_address" class="block text-sm font-medium text-gray-700 mb-1">Company Address</label>
-                                        <textarea id="company_address" name="company_address" rows="3" 
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><?php echo htmlspecialchars($companyAddress); ?></textarea>
-                                        <p class="mt-1 text-xs text-gray-500">Each line will be displayed as a separate line in the footer</p>
-                                    </div>
-                                    
-                                    <div class="col-span-1 md:col-span-2">
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Footer Logo</label>
+                                </div>
+                                
+                                <!-- Section Headings -->
+                                <div class="mt-6 border-t border-gray-200 pt-6">
+                                    <h3 class="text-md font-medium text-gray-800 mb-4">Section Headings</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label for="contact_title" class="block text-sm font-medium text-gray-700 mb-1">Contact Section Title</label>
+                                            <input type="text" id="contact_title" name="contact_title" 
+                                                value="<?php echo htmlspecialchars($settings['contact_title'] ?? 'Hubungi Kami'); ?>"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        </div>
                                         
-                                        <div class="flex items-start space-x-4">
-                                            <div class="w-1/3">
-                                                <?php $logoPath = $settings['logo_footer'] ?? 'assets/images/logos/logo-footer.png'; ?>
-                                                <div class="mb-2 bg-gray-100 p-4 rounded-lg text-center">
-                                                    <img src="../<?php echo htmlspecialchars($logoPath); ?>" alt="Current logo" class="max-h-24 inline-block">
-                                                </div>
-                                                <p class="text-xs text-gray-500 text-center">Current Logo</p>
+                                        <div>
+                                            <label for="services_title" class="block text-sm font-medium text-gray-700 mb-1">Services Section Title</label>
+                                            <input type="text" id="services_title" name="services_title" 
+                                                value="<?php echo htmlspecialchars($settings['services_title'] ?? 'Layanan Kami'); ?>"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-6">
+                                    <label for="company_address" class="block text-sm font-medium text-gray-700 mb-1">Company Address</label>
+                                    <textarea id="company_address" name="company_address" rows="3" 
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><?php echo htmlspecialchars($companyAddress); ?></textarea>
+                                    <p class="mt-1 text-xs text-gray-500">Each line will be displayed as a separate line in the footer</p>
+                                </div>
+                                
+                                <div class="mt-6">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Footer Logo</label>
+                                    
+                                    <div class="flex items-start space-x-4">
+                                        <div class="w-1/3">
+                                            <?php $logoPath = $settings['logo_footer'] ?? 'assets/images/logos/logo-footer.png'; ?>
+                                            <div class="mb-2 bg-gray-100 p-4 rounded-lg text-center">
+                                                <img src="../<?php echo htmlspecialchars($logoPath); ?>" alt="Current logo" class="max-h-24 inline-block">
                                             </div>
-                                            
-                                            <div class="w-2/3">
-                                                <div class="mb-3">
-                                                    <label for="logo_file" class="block text-sm font-medium text-gray-700 mb-1">Upload New Logo</label>
-                                                    <input type="file" id="logo_file" name="logo_file" 
-                                                           class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                                    <p class="mt-1 text-xs text-gray-500">Recommended size: 270px × 60px. Accepted formats: JPG, JPEG, PNG, GIF, SVG, WEBP.</p>
-                                                </div>
+                                            <p class="text-xs text-gray-500 text-center">Current Logo</p>
+                                        </div>
+                                        
+                                        <div class="w-2/3">
+                                            <div class="mb-3">
+                                                <label for="logo_file" class="block text-sm font-medium text-gray-700 mb-1">Upload New Logo</label>
+                                                <input type="file" id="logo_file" name="logo_file" 
+                                                       class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                                <p class="mt-1 text-xs text-gray-500">Recommended size: 270px × 60px. Accepted formats: JPG, JPEG, PNG, GIF, SVG, WEBP.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -504,6 +531,34 @@ include('components/head.php')
                                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><?php echo htmlspecialchars($settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kepada tim kami untuk ditindaklanjuti.'); ?></textarea>
                                     </div>
                                     
+                                    <!-- Email Form Settings -->
+                                    <div class="border-t border-gray-200 pt-6">
+                                        <h3 class="text-md font-medium text-gray-800 mb-4">Email Form Settings</h3>
+                                        
+                                        <div class="mb-4">
+                                            <label for="bulletin_email_placeholder" class="block text-sm font-medium text-gray-700 mb-1">Email Placeholder</label>
+                                            <input type="text" id="bulletin_email_placeholder" name="bulletin_email_placeholder" 
+                                                value="<?php echo htmlspecialchars($settings['bulletin_email_placeholder'] ?? 'Enter Your Email'); ?>"
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        </div>
+                                        
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label for="bulletin_success_message" class="block text-sm font-medium text-gray-700 mb-1">Success Message</label>
+                                                <input type="text" id="bulletin_success_message" name="bulletin_success_message" 
+                                                    value="<?php echo htmlspecialchars($settings['bulletin_success_message'] ?? 'Thank you for subscribing!'); ?>"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            </div>
+                                            
+                                            <div>
+                                                <label for="bulletin_error_message" class="block text-sm font-medium text-gray-700 mb-1">Error Message</label>
+                                                <input type="text" id="bulletin_error_message" name="bulletin_error_message" 
+                                                    value="<?php echo htmlspecialchars($settings['bulletin_error_message'] ?? 'Something went wrong. Please try again.'); ?>"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
                                     <div class="bg-blue-50 p-4 rounded-lg">
                                         <div class="flex">
                                             <div class="flex-shrink-0">
@@ -512,7 +567,7 @@ include('components/head.php')
                                             <div class="ml-3">
                                                 <h3 class="text-sm font-medium text-blue-800">Email Form Information</h3>
                                                 <div class="mt-2 text-sm text-blue-700">
-                                                    <p>The newsletter form functionality needs to be implemented separately. This management interface only controls the title and descriptive text.</p>
+                                                    <p>These settings control the appearance and messages of the newsletter signup form in the footer.</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -550,13 +605,13 @@ include('components/head.php')
                                         <?php echo nl2br(htmlspecialchars($companyAddress)); ?>
                                     </p>
                                     <div class="mt-2">
-                                        <h4 class="font-medium">Hubungi Kami</h4>
+                                        <h4 class="font-medium"><?php echo htmlspecialchars($settings['contact_title'] ?? 'Hubungi Kami'); ?></h4>
                                         <span class="text-blue-300"><?php echo htmlspecialchars($settings['company_phone'] ?? '+62 877-3542-6107'); ?></span>
                                     </div>
                                 </div>
                                 
                                 <div>
-                                    <h3 class="text-lg font-semibold mb-2">Layanan Kami</h3>
+                                    <h3 class="text-lg font-semibold mb-2"><?php echo htmlspecialchars($settings['services_title'] ?? 'Layanan Kami'); ?></h3>
                                     <ul class="space-y-1 text-sm text-gray-300">
                                         <?php if(empty($serviceLinks)): ?>
                                             <li>No services defined</li>
@@ -584,7 +639,12 @@ include('components/head.php')
                                         <?php echo htmlspecialchars($settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kepada tim kami untuk ditindaklanjuti.'); ?>
                                     </p>
                                     <div class="mt-2 bg-gray-700 p-2 rounded text-xs">
-                                        [Newsletter Form Placeholder]
+                                        <div class="flex items-center">
+                                            <input type="text" readonly 
+                                                value="<?php echo htmlspecialchars($settings['bulletin_email_placeholder'] ?? 'Enter Your Email'); ?>" 
+                                                class="w-full bg-gray-600 text-white p-1 rounded-l border-0">
+                                            <button class="bg-blue-500 text-white p-1 rounded-r"><i class='bx bx-paper-plane'></i></button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

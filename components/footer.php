@@ -36,8 +36,17 @@ Harjamukti, Cirebon, Jawa Barat';
 $phone = $settings['company_phone'] ?? '+62 877-3542-6107';
 $footerLogo = $settings['logo_footer'] ?? 'assets/images/logos/logo-footer.png';
 $copyright = $settings['footer_copyright'] ?? 'Copyright © ' . date('Y') . ' <a href="/">Akademi Merdeka</a> as establisment date 2022';
+
+// Dynamic heading titles
+$contactTitle = $settings['contact_title'] ?? 'Hubungi Kami';
+$servicesTitle = $settings['services_title'] ?? 'Layanan Kami';
 $bulletinTitle = $settings['bulletin_title'] ?? 'Bulletin';
+
+// Bulletin section settings
 $bulletinText = $settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kepada tim kami untuk ditindaklanjuti.';
+$bulletinEmailPlaceholder = $settings['bulletin_email_placeholder'] ?? 'Enter Your Email';
+$bulletinSuccessMessage = $settings['bulletin_success_message'] ?? 'Thank you for subscribing!';
+$bulletinErrorMessage = $settings['bulletin_error_message'] ?? 'Something went wrong. Please try again.';
 ?>
 
 <footer class="footer-area footer-bg">
@@ -56,7 +65,7 @@ $bulletinText = $settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kep
                         </div>
                         <p><?php echo nl2br(htmlspecialchars($companyAddress)); ?></p>
                         <div class="footer-call-content">
-                            <h3>Hubungi Kami</h3>
+                            <h3><?php echo htmlspecialchars($contactTitle); ?></h3>
                             <span><a href="tel:<?php echo preg_replace('/[^0-9+]/', '', $phone); ?>"><?php echo htmlspecialchars($phone); ?></a></span>
                             <i class='bx bx-headphone'></i>
                         </div>
@@ -66,14 +75,9 @@ $bulletinText = $settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kep
                 <!-- Services Section - DYNAMIC -->
                 <div class="col-lg-3 col-sm-6" style="padding-left: 50px;">
                     <div class="footer-widget pl-2">
-                        <h3>Layanan Kami</h3>
+                        <h3><?php echo htmlspecialchars($servicesTitle); ?></h3>
                         <ul class="footer-list">
-                            <?php if(empty($serviceLinks)): ?>
-                                <!-- Default services if none found in database -->
-                                <li><a href="services/penerbitan-jurnal"><i class='bx bx-chevron-right'></i> Penerbitan Jurnal </a></li>
-                                <li><a href="services/penerbitan-hki"><i class='bx bx-chevron-right'></i> Penerbitan HKI </a></li>
-                                <li><a href="services/pengolahan-statistik"><i class='bx bx-chevron-right'></i> Pengolahan Statistik </a></li>
-                            <?php else: ?>
+                            <?php if($serviceLinks): ?>
                                 <?php foreach($serviceLinks as $link): ?>
                                     <li>
                                         <a href="<?php echo htmlspecialchars($link['url']); ?>">
@@ -117,14 +121,14 @@ $bulletinText = $settings['bulletin_text'] ?? 'Informasi lain dapat diajukan kep
                     </div>
                 </div>
                 
-                <!-- Bulletin Section - DYNAMIC -->
+                <!-- Bulletin Section - FULLY DYNAMIC -->
                 <div class="col-lg-3 col-sm-6">
                     <div class="footer-widget">
                         <h3><?php echo htmlspecialchars($bulletinTitle); ?></h3>
                         <p><?php echo htmlspecialchars($bulletinText); ?></p>
                         <div class="newsletter-area">
                             <form class="newsletter-form" data-toggle="validator" method="POST">
-                                <input type="email" class="form-control" placeholder="Enter Your Email" name="EMAIL" required autocomplete="off">
+                                <input type="email" class="form-control" placeholder="<?php echo htmlspecialchars($bulletinEmailPlaceholder); ?>" name="EMAIL" required autocomplete="off">
                                 <button class="subscribe-btn" type="submit"><i class='bx bx-paper-plane'></i></button>
                                 <div id="validator-newsletter" class="form-result"></div>
                             </form>

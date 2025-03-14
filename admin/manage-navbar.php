@@ -17,12 +17,38 @@ $messageType = '';
 $currentUsername = $_SESSION['username'];
 $activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'menu-items';
 
-// Upload directory for images
-$upload_dir = '../assets/images/uploads/';
+// Use absolute paths for file operations to prevent errors
+$root_path = realpath(dirname(dirname(__FILE__))); // Get absolute root path of the site
+$upload_dir = $root_path . '/assets/images/uploads/navbar/';
+$upload_url_path = 'assets/images/uploads/navbar/'; // For database storage (relative path)
 
-// Create upload directory if it doesn't exist
+// Create directory structure if it doesn't exist
 if (!file_exists($upload_dir)) {
-    mkdir($upload_dir, 0755, true);
+    // Try to create the full path at once
+    if (!@mkdir($upload_dir, 0777, true)) {
+        // If failed, try to create each directory level with full permissions
+        $path_parts = ['assets', 'images', 'uploads', 'navbar'];
+        $current_path = $root_path;
+        
+        foreach ($path_parts as $dir) {
+            $current_path .= '/' . $dir;
+            if (!file_exists($current_path)) {
+                if (!@mkdir($current_path, 0777)) {
+                    // If directory creation fails, log the error
+                    error_log("Failed to create directory: $current_path");
+                }
+                // Try to set most permissive permissions
+                @chmod($current_path, 0777);
+            }
+        }
+    }
+}
+
+// Double-check that the directory exists and is writable
+if (!is_dir($upload_dir) || !is_writable($upload_dir)) {
+    $message = "Upload directory is not writable. Please check permissions for: $upload_dir";
+    $messageType = "error";
+    error_log("Upload directory not writable: $upload_dir");
 }
 
 // Function to check if a menu item is a descendant of another
@@ -192,12 +218,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $new_file_name = 'navbar_' . uniqid() . '.' . $file_ext;
                         $destination = $upload_dir . $new_file_name;
                         
+                        // Ensure directory exists with full permissions
+                        if (!is_dir($upload_dir)) {
+                            // Try once more with full permissions
+                            @mkdir($upload_dir, 0777, true);
+                            @chmod($upload_dir, 0777);
+                        }
+                        
+                        // Try to set more permissive upload directory permissions
+                        @chmod($upload_dir, 0777);
+                        
+                        // Debug information
+                        error_log("Attempting to move file to: $destination");
+                        error_log("Upload directory exists: " . (is_dir($upload_dir) ? 'Yes' : 'No'));
+                        error_log("Upload directory writable: " . (is_writable($upload_dir) ? 'Yes' : 'No'));
+                        
+                        // Try to upload with detailed error reporting
                         if (move_uploaded_file($file_tmp, $destination)) {
-                            // Path to store in the database (relative to website root)
-                            $relative_path = 'assets/images/uploads/' . $new_file_name;
-                            $settings[$pathField] = $relative_path;
+                            // Set permissive file permissions
+                            @chmod($destination, 0666);
+                            
+                            // Path to store in the database (relative path)
+                            $settings[$pathField] = $upload_url_path . $new_file_name;
+                            
+                            error_log("File uploaded successfully to: $destination");
                         } else {
-                            throw new Exception("Failed to upload image: " . $file_name);
+                            $error = error_get_last();
+                            $errorMsg = "Failed to upload image: $file_name. " .
+                                       "PHP Error: " . ($error ? $error['message'] : 'Unknown') . ". " .
+                                       "Source: $file_tmp, Destination: $destination. " .
+                                       "Is directory writable: " . (is_writable($upload_dir) ? 'Yes' : 'No');
+                            
+                            error_log($errorMsg);
+                            throw new Exception($errorMsg);
                         }
                     } else {
                         throw new Exception("Invalid file type. Only JPG, JPEG, PNG, GIF, SVG and WEBP are allowed: " . $file_name);
@@ -437,6 +490,23 @@ function displayMenuTree($menuTree, $level = 0) {
                         </nav>
                     </div>
                 </div>
+                
+                <!-- Upload Directory Debug Info (Will only show if there's an issue with the upload directory) -->
+                <?php if(!is_dir($upload_dir) || !is_writable($upload_dir)): ?>
+                <div class="mb-6 p-4 rounded-lg shadow-sm border-l-4 bg-yellow-50 border-yellow-500 text-yellow-700 flex items-start">
+                    <i class="bx bx-error-circle text-2xl mr-3 mt-0.5"></i>
+                    <div>
+                        <strong>Upload Directory Warning:</strong>
+                        <ul class="mt-1 list-disc list-inside">
+                            <li>Path: <?php echo htmlspecialchars($upload_dir); ?></li>
+                            <li>Exists: <?php echo is_dir($upload_dir) ? 'Yes' : 'No'; ?></li>
+                            <li>Writable: <?php echo is_writable($upload_dir) ? 'Yes' : 'No'; ?></li>
+                            <li>Parent Writable: <?php echo is_writable(dirname($upload_dir)) ? 'Yes' : 'No'; ?></li>
+                        </ul>
+                        <p class="mt-2">Please make sure the upload directory exists and has correct permissions (chmod 777).</p>
+                    </div>
+                </div>
+                <?php endif; ?>
                 
                 <!-- Menu Items Tab -->
                 <?php if ($activeTab === 'menu-items'): ?>
@@ -879,6 +949,7 @@ function displayMenuTree($menuTree, $level = 0) {
                                     <div class="inline-block rounded-md overflow-hidden">
                                         <a href="#" class="flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md">
                                             <?php echo htmlspecialchars($navbarSettings['action_button_text'] ?? 'Konsultasi Sekarang'); ?>
+                                            <i class='bx bx-chevron-right ml-1'></i>
                                         </a>
                                     </div>
                                 </div>

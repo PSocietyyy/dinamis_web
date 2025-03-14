@@ -43,3 +43,25 @@ INSERT INTO footer_links (section, title, url, icon, display_order, is_active) V
 ('services', 'Pendampingan TKDA/TKBI', 'services/pendampingan-tkda', 'bx bx-chevron-right', 5, TRUE),
 ('services', 'Konversi KTI', 'services/konversi-kti', 'bx bx-chevron-right', 6, TRUE),
 ('services', 'Pembuatan Media Ajar', 'services/media-ajar', 'bx bx-chevron-right', 7, TRUE);
+
+-- Add new settings for h3 headings
+INSERT INTO footer_settings (setting_key, setting_value) VALUES
+('contact_title', 'Hubungi Kami')
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+INSERT INTO footer_settings (setting_key, setting_value) VALUES
+('services_title', 'Layanan Kami')
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+-- Existing bulletin fields plus new email form fields
+INSERT INTO footer_settings (setting_key, setting_value) VALUES
+('bulletin_email_placeholder', 'Enter Your Email')
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+INSERT INTO footer_settings (setting_key, setting_value) VALUES
+('bulletin_success_message', 'Thank you for subscribing!')
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
+
+INSERT INTO footer_settings (setting_key, setting_value) VALUES
+('bulletin_error_message', 'Something went wrong. Please try again.')
+ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value);
