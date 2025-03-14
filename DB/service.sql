@@ -23,19 +23,19 @@ VALUES  ("Pendampingan"),
 INSERT INTO service_features(feature_name, feature_category_id, feature_path, feature_image_path) 
 VALUES 
 -- Pendampingan (kategori_id = 1)
-("Penerbitan Jurnal", 1, "services/penerbitan-jurnal", "assets/images/services/services-jurnal.jpg"),
-("TKDA/TKBI", 1, "services/pendampingan-tkda", "assets/images/services/services-tkda.jpg"),
-("OJS", 1, "services/pendampingan-ojs", "assets/images/services/services-ojs.jpg"),
+("Penerbitan Jurnal", 1, "services/penerbitan-jurnal", "assets/images/uploads/services/services-jurnal.jpg"),
+("TKDA/TKBI", 1, "services/pendampingan-tkda", "assets/images/uploads/services/services-tkda.jpg"),
+("OJS", 1, "services/pendampingan-ojs", "assets/images/uploads/services/services-ojs.jpg"),
 
 -- Penerbitan (kategori_id = 2)
-("HKI, Paten, Merk", 2, "services/penerbitan-hki", "assets/images/services/services-hki.jpg"),
+("HKI, Paten, Merk", 2, "services/penerbitan-hki", "assets/images/uploads/services/services-hki.jpg"),
 
 -- Pengolahan (kategori_id = 3)
-("Statistik", 3, "services/pengolahan-statistik", "assets/images/services/services-statistik.jpg"),
+("Statistik", 3, "services/pengolahan-statistik", "assets/images/uploads/services/services-statistik.jpg"),
 
 -- Pembuatan (kategori_id = 4)
-("Media Ajar", 4, "services/media-ajar", "assets/images/services/services-mediaajar.jpg"),
-("E-Learning", 4, "services/elearning", "assets/images/services/services-elearning.jpg"),
+("Media Ajar", 4, "services/media-ajar", "assets/images/uploads/services/services-mediaajar.jpg"),
+("E-Learning", 4, "services/elearning", "assets/images/uploads/services/services-elearning.jpg"),
 
 -- Konversi (kategori_id = 5)
-("KTI", 5, "services/konversi-kti", "assets/images/services/services-kti.jpg");
+("KTI", 5, "services/konversi-kti", "assets/images/uploads/services/services-kti.jpg");

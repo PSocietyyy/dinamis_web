@@ -18,25 +18,26 @@ $currentUsername = $_SESSION['username'];
 $activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'categories';
 
 // Handle image uploads dengan path otomatis ke assets/images/services
+// Handle image uploads dengan path otomatis ke assets/uploads/services
 function handleImageUpload($fileInput, $oldPath = null) {
     // Tentukan root path
     $rootPath = dirname(dirname(dirname(__DIR__)));
     
-    // Buat struktur direktori assets/images/services secara otomatis
+    // Buat struktur direktori assets/uploads/services secara otomatis
     if (!file_exists($rootPath . '/assets')) {
         @mkdir($rootPath . '/assets', 0777);
     }
     
-    if (!file_exists($rootPath . 'assets/uploads')) {
-        @mkdir($rootPath . 'assets/uploads', 0777);
+    if (!file_exists($rootPath . '/assets/uploads')) {
+        @mkdir($rootPath . '/assets/uploads', 0777);
     }
     
-    if (!file_exists($rootPath . 'assets/uploads/service')) {
-        @mkdir($rootPath . 'assets/uploads/service', 0777);
+    if (!file_exists($rootPath . '/assets/uploads/services')) {
+        @mkdir($rootPath . '/assets/uploads/services', 0777);
     }
     
-    // Set direktori upload
-    $uploadDirectory = $rootPath . 'assets/uploads/service/';
+    // Set direktori upload (dengan slash sebelum assets)
+    $uploadDirectory = $rootPath . '/assets/uploads/services/';
     
     // Periksa jika direktori dapat ditulis
     if (!is_writable($uploadDirectory)) {
@@ -71,7 +72,7 @@ function handleImageUpload($fileInput, $oldPath = null) {
         // Move the uploaded file
         if (@move_uploaded_file($tempFile, $targetPath)) {
             // Get the relative path for the database (from website root)
-            $relativePath = 'assets/uploads/service/' . $newFilename;
+            $relativePath = 'assets/uploads/services/' . $newFilename;
             return [
                 'success' => true,
                 'path' => $relativePath
@@ -93,7 +94,6 @@ function handleImageUpload($fileInput, $oldPath = null) {
         'path' => $oldPath
     ];
 }
-
 // Process form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
@@ -211,7 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Jika user memasukkan hanya nama file tanpa path lengkap
                 $inputPath = $_POST['feature_image_path'];
                 if (!strstr($inputPath, '/')) {
-                    $imagePath = 'assets/uploads/service/' . $inputPath;
+                    $imagePath = 'assets/uploads/services/' . $inputPath;
                 } else {
                     $imagePath = $inputPath;
                 }
@@ -271,7 +271,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Jika user memasukkan hanya nama file tanpa path lengkap
                 $inputPath = $_POST['feature_image_path'];
                 if (!strstr($inputPath, '/')) {
-                    $imagePath = 'assets/uploads/service/' . $inputPath;
+                    $imagePath = 'assets/uploads/services/' . $inputPath;
                 } else {
                     $imagePath = $inputPath;
                 }
@@ -713,13 +713,13 @@ try {
                                     <label for="edit_feature_image_path" class="block text-sm font-medium text-gray-700 mb-1">Atau Gunakan Gambar yang Sudah Ada</label>
                                     <div class="flex">
                                         <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md">
-                                            assets/uploads/service/
+                                            assets/uploads/services/
                                         </span>
                                         <input type="text" id="edit_feature_image_path" name="feature_image_path"
                                                placeholder="nama-file.jpg" 
                                                class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     </div>
-                                    <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/uploads/service/</p>
+                                    <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/uploads/services/</p>
                                 </div>
                             </div>
                             
@@ -770,7 +770,7 @@ try {
     
     <script>
         // Konstanta untuk path gambar
-        const servicesImagePath = 'assets/uploads/service/';
+        const servicesImagePath = 'assets/uploads/services/';
         
         // Category Modals
         function openEditCategoryModal(id, name) {
