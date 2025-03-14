@@ -654,14 +654,21 @@ try {
                 </div>
                 
                 <!-- Edit Feature Modal -->
-                <div id="editFeatureModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-                    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
-                        <div class="flex justify-between items-center mb-4">
+                <!-- Edit Feature Modal dengan Scroll -->
+            <div id="editFeatureModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden overflow-auto py-8">
+                <div class="bg-white rounded-lg shadow-xl w-full max-w-lg mx-auto my-auto">
+                    <!-- Modal Header - Tetap di atas saat scroll -->
+                    <div class="sticky top-0 bg-white p-6 border-b border-gray-200">
+                        <div class="flex justify-between items-center">
                             <h3 class="text-lg font-medium text-gray-900">Edit Layanan</h3>
                             <button type="button" onclick="closeEditFeatureModal()" class="text-gray-400 hover:text-gray-500">
                                 <i class="bx bx-x text-2xl"></i>
                             </button>
                         </div>
+                    </div>
+                    
+                    <!-- Modal Body dengan Scroll -->
+                    <div class="p-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
                         <form method="POST" action="?tab=features" enctype="multipart/form-data">
                             <input type="hidden" id="edit_feature_id" name="feature_id">
                             <input type="hidden" id="old_image_path" name="old_image_path">
@@ -669,7 +676,7 @@ try {
                             <div class="mb-4">
                                 <label for="edit_feature_name" class="block text-sm font-medium text-gray-700 mb-1">Nama Layanan</label>
                                 <input type="text" id="edit_feature_name" name="feature_name" required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                             </div>
                             
                             <div class="mb-4">
@@ -686,7 +693,7 @@ try {
                             <div class="mb-4">
                                 <label for="edit_feature_path" class="block text-sm font-medium text-gray-700 mb-1">Path URL</label>
                                 <input type="text" id="edit_feature_path" name="feature_path" required
-                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <p class="mt-1 text-xs text-gray-500">Path URL relatif dari root website (tanpa slash di awal)</p>
                             </div>
                             
@@ -705,8 +712,8 @@ try {
                                 
                                 <div class="flex flex-col space-y-2">
                                     <input type="file" id="edit_feature_image" name="feature_image" 
-                                           class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                    <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Gambar akan disimpan di </p>
+                                        class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                    <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Gambar akan disimpan di direktori assets/uploads/services/</p>
                                 </div>
                                 
                                 <div class="mt-3">
@@ -716,14 +723,17 @@ try {
                                             assets/uploads/services/
                                         </span>
                                         <input type="text" id="edit_feature_image_path" name="feature_image_path"
-                                               placeholder="nama-file.jpg" 
-                                               class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            placeholder="nama-file.jpg" 
+                                            class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/uploads/services/</p>
                                 </div>
                             </div>
-                            
-                            <div class="flex justify-end space-x-3 mt-6">
+                        </div>
+                        
+                        <!-- Modal Footer - Tetap di bawah saat scroll -->
+                        <div class="sticky bottom-0 bg-white p-6 border-t border-gray-200">
+                            <div class="flex justify-end space-x-3">
                                 <button type="button" onclick="closeEditFeatureModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
                                     Batal
                                 </button>
@@ -734,6 +744,7 @@ try {
                         </form>
                     </div>
                 </div>
+            </div>
                 
                 <!-- Delete Feature Modal -->
                 <div id="deleteFeatureModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
