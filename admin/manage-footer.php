@@ -21,8 +21,13 @@ if (!in_array($activeTab, $validTabs)) {
     $activeTab = 'general';
 }
 
+<<<<<<< HEAD
 // Configuration
 $uploadDirectory = '../assets/uploads/footer/';
+=======
+// Configuration for file uploads
+$uploadDirectory = '../assets/images/uploads/footer/';
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
 if (!file_exists($uploadDirectory)) {
     // Create directory if it doesn't exist
     mkdir($uploadDirectory, 0755, true);
@@ -39,11 +44,19 @@ function handleImageUpload($fileInput, $oldPath = null) {
         $extension = strtolower($fileInfo['extension']);
         
         // Validate file type
+<<<<<<< HEAD
         $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
         if (!in_array($extension, $allowedExtensions)) {
             return [
                 'success' => false,
                 'message' => "Invalid file type. Only JPG, PNG, GIF, and SVG files are allowed."
+=======
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
+        if (!in_array($extension, $allowedExtensions)) {
+            return [
+                'success' => false,
+                'message' => "Invalid file type. Only JPG, JPEG, PNG, GIF, SVG, and WEBP files are allowed."
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
             ];
         }
         
@@ -54,12 +67,20 @@ function handleImageUpload($fileInput, $oldPath = null) {
         // Move the uploaded file
         if (move_uploaded_file($tempFile, $targetPath)) {
             // Delete old file if it exists and is in the uploads directory
+<<<<<<< HEAD
             if ($oldPath && strpos($oldPath, 'assets/uploads/footer/') !== false && file_exists('../' . $oldPath)) {
+=======
+            if ($oldPath && strpos($oldPath, 'assets/images/uploads/footer/') !== false && file_exists('../' . $oldPath)) {
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                 unlink('../' . $oldPath);
             }
             
             // Return the relative path for database storage
+<<<<<<< HEAD
             $relativePath = 'assets/uploads/footer/' . $newFilename;
+=======
+            $relativePath = 'assets/images/uploads/footer/' . $newFilename;
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
             return [
                 'success' => true,
                 'path' => $relativePath
@@ -67,7 +88,11 @@ function handleImageUpload($fileInput, $oldPath = null) {
         } else {
             return [
                 'success' => false,
+<<<<<<< HEAD
                 'message' => "Failed to move uploaded file."
+=======
+                'message' => "Failed to move uploaded file. Check folder permissions."
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
             ];
         }
     }
@@ -103,6 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception($uploadResult['message']);
             }
             
+<<<<<<< HEAD
             // Use uploaded path or keep the input path
             $logoPath = $uploadResult['path'];
             if (!isset($_FILES['logo_file']) || $_FILES['logo_file']['error'] !== UPLOAD_ERR_OK) {
@@ -111,6 +137,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $logoPath = $_POST['logo_path'];
                 }
             }
+=======
+            // Use uploaded path or keep the current path
+            $logoPath = $uploadResult['path'];
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
             
             // Combine address into a single field
             $companyAddress = trim($_POST['company_address'] ?? '');
@@ -161,12 +191,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($_POST['service_titles']) && is_array($_POST['service_titles'])) {
                 $titles = $_POST['service_titles'];
                 $urls = $_POST['service_urls'];
+<<<<<<< HEAD
+=======
+                $icons = $_POST['service_icons'];
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                 $orders = $_POST['service_orders'];
                 $active = $_POST['service_active'] ?? [];
                 
                 for ($i = 0; $i < count($titles); $i++) {
                     $title = trim($titles[$i]);
                     $url = trim($urls[$i]);
+<<<<<<< HEAD
+=======
+                    $icon = trim($icons[$i] ?: 'bx bx-chevron-right'); // Default icon if empty
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                     $order = (int)$orders[$i];
                     
                     if (!empty($title) && !empty($url)) {
@@ -174,9 +212,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         $stmt = $conn->prepare("INSERT INTO footer_links 
                                               (section, title, url, icon, display_order, is_active) 
+<<<<<<< HEAD
                                               VALUES ('services', :title, :url, 'bx bx-chevron-right', :order, :active)");
                         $stmt->bindParam(':title', $title);
                         $stmt->bindParam(':url', $url);
+=======
+                                              VALUES ('services', :title, :url, :icon, :order, :active)");
+                        $stmt->bindParam(':title', $title);
+                        $stmt->bindParam(':url', $url);
+                        $stmt->bindParam(':icon', $icon);
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                         $stmt->bindParam(':order', $order);
                         $stmt->bindParam(':active', $isActive, PDO::PARAM_BOOL);
                         $stmt->execute();
@@ -188,13 +233,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($_POST['new_service_title']) && !empty($_POST['new_service_url'])) {
                 $newTitle = trim($_POST['new_service_title']);
                 $newUrl = trim($_POST['new_service_url']);
+<<<<<<< HEAD
+=======
+                $newIcon = trim($_POST['new_service_icon'] ?: 'bx bx-chevron-right'); // Default icon if empty
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                 $newOrder = (int)$_POST['new_service_order'];
                 
                 $stmt = $conn->prepare("INSERT INTO footer_links 
                                       (section, title, url, icon, display_order, is_active) 
+<<<<<<< HEAD
                                       VALUES ('services', :title, :url, 'bx bx-chevron-right', :order, TRUE)");
                 $stmt->bindParam(':title', $newTitle);
                 $stmt->bindParam(':url', $newUrl);
+=======
+                                      VALUES ('services', :title, :url, :icon, :order, TRUE)");
+                $stmt->bindParam(':title', $newTitle);
+                $stmt->bindParam(':url', $newUrl);
+                $stmt->bindParam(':icon', $newIcon);
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                 $stmt->bindParam(':order', $newOrder);
                 $stmt->execute();
             }
@@ -259,7 +315,11 @@ try {
 // Fetch service links
 $serviceLinks = [];
 try {
+<<<<<<< HEAD
     $stmt = $conn->prepare("SELECT id, title, url, display_order, is_active FROM footer_links 
+=======
+    $stmt = $conn->prepare("SELECT id, title, url, icon, display_order, is_active FROM footer_links 
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                            WHERE section = 'services' ORDER BY display_order ASC");
     $stmt->execute();
     $serviceLinks = $stmt->fetchAll();
@@ -375,6 +435,7 @@ include('components/head.php')
                                                 <div class="mb-3">
                                                     <label for="logo_file" class="block text-sm font-medium text-gray-700 mb-1">Upload New Logo</label>
                                                     <input type="file" id="logo_file" name="logo_file" 
+<<<<<<< HEAD
                                                         class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                                                     <p class="mt-1 text-xs text-gray-500">Recommended size: 270px × 60px. Accepted formats: JPG, PNG, GIF, SVG.</p>
                                                 </div>
@@ -386,6 +447,10 @@ include('components/head.php')
                                                         placeholder="assets/images/logo.png"
                                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                                     <p class="mt-1 text-xs text-gray-500">Path relative to website root. This will be used if no file is uploaded.</p>
+=======
+                                                           class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                                    <p class="mt-1 text-xs text-gray-500">Recommended size: 270px × 60px. Accepted formats: JPG, JPEG, PNG, GIF, SVG, WEBP.</p>
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                                                 </div>
                                             </div>
                                         </div>
@@ -418,13 +483,21 @@ include('components/head.php')
                                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Active</th>
                                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
                                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
+<<<<<<< HEAD
+=======
+                                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Icon</th>
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                                                     <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
                                                 </tr>
                                             </thead>
                                             <tbody class="bg-white divide-y divide-gray-200">
                                                 <?php if(empty($serviceLinks)): ?>
                                                 <tr>
+<<<<<<< HEAD
                                                     <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">No service links found</td>
+=======
+                                                    <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">No service links found</td>
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                                                 </tr>
                                                 <?php else: ?>
                                                     <?php foreach($serviceLinks as $index => $link): ?>
@@ -443,6 +516,14 @@ include('components/head.php')
                                                                 class="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                                         </td>
                                                         <td class="px-6 py-4 whitespace-nowrap">
+<<<<<<< HEAD
+=======
+                                                            <input type="text" name="service_icons[]" value="<?php echo htmlspecialchars($link['icon']); ?>" 
+                                                                placeholder="bx bx-chevron-right"
+                                                                class="w-full px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                                        </td>
+                                                        <td class="px-6 py-4 whitespace-nowrap">
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                                                             <input type="number" name="service_orders[]" value="<?php echo $link['display_order']; ?>" min="1" 
                                                                 class="w-20 px-3 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                                         </td>
@@ -456,7 +537,11 @@ include('components/head.php')
                                 
                                 <div class="mt-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
                                     <h3 class="text-base font-medium text-gray-900 mb-4">Add New Service Link</h3>
+<<<<<<< HEAD
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+=======
+                                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                                         <div>
                                             <label for="new_service_title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
                                             <input type="text" id="new_service_title" name="new_service_title" 
@@ -469,6 +554,16 @@ include('components/head.php')
                                                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                         </div>
                                         <div>
+<<<<<<< HEAD
+=======
+                                            <label for="new_service_icon" class="block text-sm font-medium text-gray-700 mb-1">Icon Class</label>
+                                            <input type="text" id="new_service_icon" name="new_service_icon" 
+                                                placeholder="bx bx-chevron-right" 
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <p class="mt-1 text-xs text-gray-500">Boxicons class name (default: bx bx-chevron-right)</p>
+                                        </div>
+                                        <div>
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                                             <label for="new_service_order" class="block text-sm font-medium text-gray-700 mb-1">Order</label>
                                             <input type="number" id="new_service_order" name="new_service_order" 
                                                 value="<?php echo count($serviceLinks) + 1; ?>" min="1" 
@@ -561,7 +656,11 @@ include('components/head.php')
                                             <?php foreach($serviceLinks as $link): ?>
                                                 <?php if($link['is_active']): ?>
                                                 <li>
+<<<<<<< HEAD
                                                     <i class='bx bx-chevron-right'></i> 
+=======
+                                                    <i class='<?php echo htmlspecialchars($link['icon']); ?>'></i> 
+>>>>>>> 8e4becbaf5403e7d97d03949a8cd50225d60a7aa
                                                     <?php echo htmlspecialchars($link['title']); ?>
                                                 </li>
                                                 <?php endif; ?>
