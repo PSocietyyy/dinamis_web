@@ -1,0 +1,918 @@
+<?php
+// Start the session
+session_start();
+
+// Check if not logged in
+if(!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+    header("Location: ../../../login.php");
+    exit;
+}
+
+// Include database connection
+require_once('../../../config.php');
+
+// Initialize variables
+$message = '';
+$messageType = '';
+$currentUsername = $_SESSION['username'];
+$activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'categories';
+
+// Handle image uploads dengan path otomatis ke assets/images/services
+function handleImageUpload($fileInput, $oldPath = null) {
+    // Tentukan root path
+    $rootPath = dirname(dirname(dirname(__DIR__)));
+    
+    // Buat struktur direktori assets/images/services secara otomatis
+    if (!file_exists($rootPath . '/assets')) {
+        @mkdir($rootPath . '/assets', 0777);
+    }
+    
+    if (!file_exists($rootPath . 'assets/uploads')) {
+        @mkdir($rootPath . 'assets/uploads', 0777);
+    }
+    
+    if (!file_exists($rootPath . 'assets/uploads/service')) {
+        @mkdir($rootPath . 'assets/uploads/service', 0777);
+    }
+    
+    // Set direktori upload
+    $uploadDirectory = $rootPath . 'assets/uploads/service/';
+    
+    // Periksa jika direktori dapat ditulis
+    if (!is_writable($uploadDirectory)) {
+        @chmod($uploadDirectory, 0777);
+        if (!is_writable($uploadDirectory)) {
+            return [
+                'success' => false,
+                'message' => "Direktori upload tidak dapat ditulis. Cek permission untuk: " . $uploadDirectory
+            ];
+        }
+    }
+    
+    // Check if a file was uploaded
+    if (isset($_FILES[$fileInput]) && $_FILES[$fileInput]['error'] === UPLOAD_ERR_OK) {
+        $tempFile = $_FILES[$fileInput]['tmp_name'];
+        $fileInfo = pathinfo($_FILES[$fileInput]['name']);
+        $extension = strtolower($fileInfo['extension']);
+        
+        // Validate file type
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
+        if (!in_array($extension, $allowedExtensions)) {
+            return [
+                'success' => false,
+                'message' => "Format file tidak valid. Hanya JPG, PNG, GIF, SVG, dan WEBP yang diperbolehkan."
+            ];
+        }
+        
+        // Generate a unique filename to prevent overwriting
+        $newFilename = 'service_' . uniqid() . '.' . $extension;
+        $targetPath = $uploadDirectory . $newFilename;
+        
+        // Move the uploaded file
+        if (@move_uploaded_file($tempFile, $targetPath)) {
+            // Get the relative path for the database (from website root)
+            $relativePath = 'assets/uploads/service/' . $newFilename;
+            return [
+                'success' => true,
+                'path' => $relativePath
+            ];
+        } else {
+            $uploadError = error_get_last();
+            return [
+                'success' => false,
+                'message' => "Gagal memindahkan file yang diupload. " . 
+                             "Error: " . ($uploadError ? $uploadError['message'] : 'Error tidak diketahui') . 
+                             ". Periksa apakah PHP memiliki izin tulis ke direktori."
+            ];
+        }
+    }
+    
+    // If no new file was uploaded, return the old path
+    return [
+        'success' => true,
+        'path' => $oldPath
+    ];
+}
+
+// Process form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    
+    // Add Category
+    if (isset($_POST['add_category'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $categoryName = trim($_POST['category_name']);
+            
+            if (empty($categoryName)) {
+                throw new Exception("Category name is required");
+            }
+            
+            $stmt = $conn->prepare("INSERT INTO service_categories (categories_name) VALUES (:name)");
+            $stmt->bindParam(':name', $categoryName);
+            $stmt->execute();
+            
+            $conn->commit();
+            $message = "Kategori berhasil ditambahkan!";
+            $messageType = "success";
+            $activeTab = 'categories';
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $message = "Error menambahkan kategori: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+    
+    // Edit Category
+    elseif (isset($_POST['edit_category'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $categoryId = (int)$_POST['category_id'];
+            $categoryName = trim($_POST['category_name']);
+            
+            if (empty($categoryName)) {
+                throw new Exception("Nama kategori harus diisi");
+            }
+            
+            $stmt = $conn->prepare("UPDATE service_categories SET categories_name = :name WHERE id = :id");
+            $stmt->bindParam(':name', $categoryName);
+            $stmt->bindParam(':id', $categoryId);
+            $stmt->execute();
+            
+            $conn->commit();
+            $message = "Kategori berhasil diperbarui!";
+            $messageType = "success";
+            $activeTab = 'categories';
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $message = "Error memperbarui kategori: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+    
+    // Delete Category
+    elseif (isset($_POST['delete_category'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $categoryId = (int)$_POST['category_id'];
+            
+            // Check if the category is being used by any features
+            $checkStmt = $conn->prepare("SELECT COUNT(*) FROM service_features WHERE feature_category_id = :id");
+            $checkStmt->bindParam(':id', $categoryId);
+            $checkStmt->execute();
+            
+            if ($checkStmt->fetchColumn() > 0) {
+                throw new Exception("Tidak dapat menghapus kategori ini karena sedang digunakan oleh satu atau lebih layanan");
+            }
+            
+            $stmt = $conn->prepare("DELETE FROM service_categories WHERE id = :id");
+            $stmt->bindParam(':id', $categoryId);
+            $stmt->execute();
+            
+            $conn->commit();
+            $message = "Kategori berhasil dihapus!";
+            $messageType = "success";
+            $activeTab = 'categories';
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $message = "Error menghapus kategori: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+    
+    // Add Feature
+    elseif (isset($_POST['add_feature'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $featureName = trim($_POST['feature_name']);
+            $featureCategoryId = (int)$_POST['feature_category_id'];
+            $featurePath = trim($_POST['feature_path']);
+            
+            if (empty($featureName)) {
+                throw new Exception("Nama layanan harus diisi");
+            }
+            
+            if (empty($featurePath)) {
+                throw new Exception("Path layanan harus diisi");
+            }
+            
+            // Handle image upload
+            $imagePath = '';
+            if (!empty($_FILES['feature_image']['name'])) {
+                $uploadResult = handleImageUpload('feature_image');
+                if (!$uploadResult['success']) {
+                    throw new Exception($uploadResult['message']);
+                }
+                $imagePath = $uploadResult['path'];
+            } elseif (!empty($_POST['feature_image_path'])) {
+                // Jika user memasukkan hanya nama file tanpa path lengkap
+                $inputPath = $_POST['feature_image_path'];
+                if (!strstr($inputPath, '/')) {
+                    $imagePath = 'assets/uploads/service/' . $inputPath;
+                } else {
+                    $imagePath = $inputPath;
+                }
+            } else {
+                throw new Exception("Gambar layanan harus diisi");
+            }
+            
+            $stmt = $conn->prepare("INSERT INTO service_features 
+                                 (feature_name, feature_category_id, feature_path, feature_image_path) 
+                                 VALUES (:name, :category_id, :path, :image_path)");
+            
+            $stmt->bindParam(':name', $featureName);
+            $stmt->bindParam(':category_id', $featureCategoryId);
+            $stmt->bindParam(':path', $featurePath);
+            $stmt->bindParam(':image_path', $imagePath);
+            $stmt->execute();
+            
+            $conn->commit();
+            $message = "Layanan berhasil ditambahkan!";
+            $messageType = "success";
+            $activeTab = 'features';
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $message = "Error menambahkan layanan: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+    
+    // Edit Feature
+    elseif (isset($_POST['edit_feature'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $featureId = (int)$_POST['feature_id'];
+            $featureName = trim($_POST['feature_name']);
+            $featureCategoryId = (int)$_POST['feature_category_id'];
+            $featurePath = trim($_POST['feature_path']);
+            $oldImagePath = $_POST['old_image_path'];
+            
+            if (empty($featureName)) {
+                throw new Exception("Nama layanan harus diisi");
+            }
+            
+            if (empty($featurePath)) {
+                throw new Exception("Path layanan harus diisi");
+            }
+            
+            // Handle image upload
+            $imagePath = $oldImagePath;
+            if (!empty($_FILES['feature_image']['name'])) {
+                $uploadResult = handleImageUpload('feature_image', $oldImagePath);
+                if (!$uploadResult['success']) {
+                    throw new Exception($uploadResult['message']);
+                }
+                $imagePath = $uploadResult['path'];
+            } elseif (!empty($_POST['feature_image_path'])) {
+                // Jika user memasukkan hanya nama file tanpa path lengkap
+                $inputPath = $_POST['feature_image_path'];
+                if (!strstr($inputPath, '/')) {
+                    $imagePath = 'assets/uploads/service/' . $inputPath;
+                } else {
+                    $imagePath = $inputPath;
+                }
+            }
+            
+            $stmt = $conn->prepare("UPDATE service_features 
+                                 SET feature_name = :name, 
+                                     feature_category_id = :category_id, 
+                                     feature_path = :path,
+                                     feature_image_path = :image_path
+                                 WHERE id = :id");
+            
+            $stmt->bindParam(':name', $featureName);
+            $stmt->bindParam(':category_id', $featureCategoryId);
+            $stmt->bindParam(':path', $featurePath);
+            $stmt->bindParam(':image_path', $imagePath);
+            $stmt->bindParam(':id', $featureId);
+            $stmt->execute();
+            
+            $conn->commit();
+            $message = "Layanan berhasil diperbarui!";
+            $messageType = "success";
+            $activeTab = 'features';
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $message = "Error memperbarui layanan: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+    
+    // Delete Feature
+    elseif (isset($_POST['delete_feature'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $featureId = (int)$_POST['feature_id'];
+            
+            $stmt = $conn->prepare("DELETE FROM service_features WHERE id = :id");
+            $stmt->bindParam(':id', $featureId);
+            $stmt->execute();
+            
+            $conn->commit();
+            $message = "Layanan berhasil dihapus!";
+            $messageType = "success";
+            $activeTab = 'features';
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $message = "Error menghapus layanan: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+}
+
+// Fetch all categories
+$categories = [];
+try {
+    $stmt = $conn->query("SELECT * FROM service_categories ORDER BY categories_name ASC");
+    $categories = $stmt->fetchAll();
+} catch(PDOException $e) {
+    $message = "Error mengambil data kategori: " . $e->getMessage();
+    $messageType = "error";
+}
+
+// Fetch all features with category names
+$features = [];
+try {
+    $stmt = $conn->query("SELECT f.*, c.categories_name 
+                        FROM service_features f
+                        LEFT JOIN service_categories c ON f.feature_category_id = c.id
+                        ORDER BY c.categories_name ASC, f.feature_name ASC");
+    $features = $stmt->fetchAll();
+} catch(PDOException $e) {
+    $message = "Error mengambil data layanan: " . $e->getMessage();
+    $messageType = "error";
+}
+?>
+
+<!doctype html>
+<html lang="id">
+<?php include('../../components/head.php'); ?>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex flex-col lg:flex-row">
+        <?php include('../../components/sidebar.php'); ?>
+        
+        <div class="flex-1 lg:ml-64">
+            <div class="bg-white p-4 shadow-sm flex justify-between items-center">
+                <h1 class="text-xl font-semibold text-gray-800">Manajemen Layanan</h1>
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($currentUsername); ?></span>
+                </div>
+            </div>
+            
+            <!-- Main Content -->
+            <div class="p-6">
+                <?php if(!empty($message)): ?>
+                <div class="mb-6 p-4 rounded-lg shadow-sm border-l-4 <?php echo $messageType === 'success' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-red-50 border-red-500 text-red-700'; ?> flex items-center">
+                    <i class="bx <?php echo $messageType === 'success' ? 'bx-check-circle' : 'bx-error-circle'; ?> text-2xl mr-3"></i>
+                    <span><?php echo $message; ?></span>
+                </div>
+                <?php endif; ?>
+                
+                <!-- Tab Navigation -->
+                <div class="mb-6 border-b border-gray-200">
+                    <nav class="flex flex-wrap -mb-px">
+                        <a href="?tab=categories" class="mr-8 py-4 px-1 border-b-2 font-medium text-sm <?php echo $activeTab == 'categories' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
+                            Kategori Layanan
+                        </a>
+                        <a href="?tab=features" class="mr-8 py-4 px-1 border-b-2 font-medium text-sm <?php echo $activeTab == 'features' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
+                            Detail Layanan
+                        </a>
+                    </nav>
+                </div>
+                
+                <!-- Categories Tab -->
+                <?php if ($activeTab == 'categories'): ?>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-800">Kategori Layanan</h2>
+                        <p class="text-sm text-gray-500 mt-1">Kelola kategori layanan yang tersedia</p>
+                    </div>
+                    <div class="p-6">
+                        <!-- Add New Category Form -->
+                        <div class="mb-8">
+                            <h3 class="text-md font-medium text-gray-800 mb-4">Tambah Kategori Baru</h3>
+                            <form method="POST" action="?tab=categories" class="flex items-end space-x-4">
+                                <div class="flex-grow">
+                                    <label for="category_name" class="block text-sm font-medium text-gray-700 mb-1">Nama Kategori</label>
+                                    <input type="text" id="category_name" name="category_name" required
+                                           placeholder="Masukkan nama kategori" 
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <button type="submit" name="add_category" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        Tambah Kategori
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- Categories List -->
+                        <div>
+                            <h3 class="text-md font-medium text-gray-800 mb-4">Daftar Kategori</h3>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Kategori</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <?php if(empty($categories)): ?>
+                                        <tr>
+                                            <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">Tidak ada kategori yang ditemukan</td>
+                                        </tr>
+                                        <?php else: ?>
+                                            <?php foreach($categories as $category): ?>
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo $category['id']; ?></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($category['categories_name']); ?></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <button type="button" onclick="openEditCategoryModal(<?php echo $category['id']; ?>, '<?php echo htmlspecialchars($category['categories_name']); ?>')" 
+                                                            class="text-blue-600 hover:text-blue-900 mr-3">
+                                                        <i class="bx bx-edit"></i> Edit
+                                                    </button>
+                                                    <button type="button" onclick="openDeleteCategoryModal(<?php echo $category['id']; ?>, '<?php echo htmlspecialchars($category['categories_name']); ?>')" 
+                                                            class="text-red-600 hover:text-red-900">
+                                                        <i class="bx bx-trash"></i> Hapus
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Edit Category Modal -->
+                <div id="editCategoryModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">Edit Kategori</h3>
+                            <button type="button" onclick="closeEditCategoryModal()" class="text-gray-400 hover:text-gray-500">
+                                <i class="bx bx-x text-2xl"></i>
+                            </button>
+                        </div>
+                        <form method="POST" action="?tab=categories">
+                            <input type="hidden" id="edit_category_id" name="category_id">
+                            <div class="mb-4">
+                                <label for="edit_category_name" class="block text-sm font-medium text-gray-700 mb-1">Nama Kategori</label>
+                                <input type="text" id="edit_category_name" name="category_name" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" onclick="closeEditCategoryModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Batal
+                                </button>
+                                <button type="submit" name="edit_category" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    Simpan Perubahan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Delete Category Modal -->
+                <div id="deleteCategoryModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">Hapus Kategori</h3>
+                            <button type="button" onclick="closeDeleteCategoryModal()" class="text-gray-400 hover:text-gray-500">
+                                <i class="bx bx-x text-2xl"></i>
+                            </button>
+                        </div>
+                        <p class="text-gray-700 mb-4">Apakah Anda yakin ingin menghapus kategori <span id="delete_category_name" class="font-semibold"></span>?</p>
+                        <p class="text-gray-500 text-sm mb-6">Kategori ini hanya dapat dihapus jika tidak digunakan oleh layanan manapun.</p>
+                        <form method="POST" action="?tab=categories">
+                            <input type="hidden" id="delete_category_id" name="category_id">
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" onclick="closeDeleteCategoryModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Batal
+                                </button>
+                                <button type="submit" name="delete_category" class="px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                    Hapus Kategori
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <!-- Features Tab -->
+                <?php if ($activeTab == 'features'): ?>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-800">Detail Layanan</h2>
+                        <p class="text-sm text-gray-500 mt-1">Kelola layanan yang tersedia pada website</p>
+                    </div>
+                    <div class="p-6">
+                        <!-- Add New Feature Button -->
+                        <div class="mb-6">
+                            <button type="button" onclick="openAddFeatureModal()" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <i class="bx bx-plus mr-1"></i> Tambah Layanan Baru
+                            </button>
+                        </div>
+                        
+                        <!-- Features List -->
+                        <div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Layanan</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Path</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gambar</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <?php if(empty($features)): ?>
+                                        <tr>
+                                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">Tidak ada layanan yang ditemukan</td>
+                                        </tr>
+                                        <?php else: ?>
+                                            <?php foreach($features as $feature): ?>
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo $feature['id']; ?></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($feature['categories_name']); ?></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($feature['feature_name']); ?></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><?php echo htmlspecialchars($feature['feature_path']); ?></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    <?php if(!empty($feature['feature_image_path'])): ?>
+                                                    <img src="../../../<?php echo htmlspecialchars($feature['feature_image_path']); ?>" alt="<?php echo htmlspecialchars($feature['feature_name']); ?>" class="h-10 w-auto object-contain">
+                                                    <?php else: ?>
+                                                    <span class="text-gray-400">No image</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <button type="button" 
+                                                            onclick="openEditFeatureModal(
+                                                                <?php echo $feature['id']; ?>, 
+                                                                '<?php echo htmlspecialchars($feature['feature_name']); ?>', 
+                                                                <?php echo $feature['feature_category_id']; ?>, 
+                                                                '<?php echo htmlspecialchars($feature['feature_path']); ?>', 
+                                                                '<?php echo htmlspecialchars($feature['feature_image_path']); ?>'
+                                                            )" 
+                                                            class="text-blue-600 hover:text-blue-900 mr-3">
+                                                        <i class="bx bx-edit"></i> Edit
+                                                    </button>
+                                                    <button type="button" 
+                                                            onclick="openDeleteFeatureModal(<?php echo $feature['id']; ?>, '<?php echo htmlspecialchars($feature['feature_name']); ?>')" 
+                                                            class="text-red-600 hover:text-red-900">
+                                                        <i class="bx bx-trash"></i> Hapus
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                            </div>
+                    </div>
+                </div>
+                
+                <!-- Add Feature Modal -->
+                <div id="addFeatureModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">Tambah Layanan Baru</h3>
+                            <button type="button" onclick="closeAddFeatureModal()" class="text-gray-400 hover:text-gray-500">
+                                <i class="bx bx-x text-2xl"></i>
+                            </button>
+                        </div>
+                        <form method="POST" action="?tab=features" enctype="multipart/form-data">
+                            <div class="mb-4">
+                                <label for="feature_name" class="block text-sm font-medium text-gray-700 mb-1">Nama Layanan</label>
+                                <input type="text" id="feature_name" name="feature_name" required
+                                       placeholder="Masukkan nama layanan" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="feature_category_id" class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                                <select id="feature_category_id" name="feature_category_id" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Pilih Kategori</option>
+                                    <?php foreach($categories as $category): ?>
+                                    <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['categories_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="feature_path" class="block text-sm font-medium text-gray-700 mb-1">Path URL</label>
+                                <input type="text" id="feature_path" name="feature_path" required
+                                       placeholder="Contoh: services/penerbitan-jurnal" 
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <p class="mt-1 text-xs text-gray-500">Path URL relatif dari root website (tanpa slash di awal)</p>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Gambar Layanan</label>
+                                <div class="flex flex-col space-y-2">
+                                    <input type="file" id="feature_image" name="feature_image" 
+                                           class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                    <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Gambar akan disimpan di <strong>assets/images/services/</strong></p>
+                                </div>
+                                
+                                <!-- <div class="mt-3">
+                                    <label for="feature_image_path" class="block text-sm font-medium text-gray-700 mb-1">Atau Gunakan Gambar yang Sudah Ada</label>
+                                    <div class="flex">
+                                        <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md">
+                                            assets/images/services/
+                                        </span>
+                                        <input type="text" id="feature_image_path" name="feature_image_path"
+                                               placeholder="nama-file.jpg" 
+                                               class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/images/services/</p>
+                                </div> -->
+                            </div>
+                            
+                            <div class="flex justify-end space-x-3 mt-6">
+                                <button type="button" onclick="closeAddFeatureModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Batal
+                                </button>
+                                <button type="submit" name="add_feature" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    Tambah Layanan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Edit Feature Modal -->
+                <div id="editFeatureModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">Edit Layanan</h3>
+                            <button type="button" onclick="closeEditFeatureModal()" class="text-gray-400 hover:text-gray-500">
+                                <i class="bx bx-x text-2xl"></i>
+                            </button>
+                        </div>
+                        <form method="POST" action="?tab=features" enctype="multipart/form-data">
+                            <input type="hidden" id="edit_feature_id" name="feature_id">
+                            <input type="hidden" id="old_image_path" name="old_image_path">
+                            
+                            <div class="mb-4">
+                                <label for="edit_feature_name" class="block text-sm font-medium text-gray-700 mb-1">Nama Layanan</label>
+                                <input type="text" id="edit_feature_name" name="feature_name" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="edit_feature_category_id" class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+                                <select id="edit_feature_category_id" name="feature_category_id" required
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Pilih Kategori</option>
+                                    <?php foreach($categories as $category): ?>
+                                    <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['categories_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="edit_feature_path" class="block text-sm font-medium text-gray-700 mb-1">Path URL</label>
+                                <input type="text" id="edit_feature_path" name="feature_path" required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <p class="mt-1 text-xs text-gray-500">Path URL relatif dari root website (tanpa slash di awal)</p>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Gambar Layanan</label>
+                                
+                                <div id="current_image_preview" class="mb-3 p-2 border rounded-md bg-gray-50 flex items-center">
+                                    <div class="w-16 h-16 flex items-center justify-center overflow-hidden bg-gray-100 rounded">
+                                        <img id="current_image" src="" alt="Current image" class="max-h-full max-w-full">
+                                    </div>
+                                    <div class="ml-3">
+                                        <p class="text-sm font-medium">Gambar Saat Ini</p>
+                                        <p id="current_image_path" class="text-xs text-gray-500 truncate"></p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex flex-col space-y-2">
+                                    <input type="file" id="edit_feature_image" name="feature_image" 
+                                           class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                    <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Gambar akan disimpan di </p>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <label for="edit_feature_image_path" class="block text-sm font-medium text-gray-700 mb-1">Atau Gunakan Gambar yang Sudah Ada</label>
+                                    <div class="flex">
+                                        <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md">
+                                            assets/uploads/service/
+                                        </span>
+                                        <input type="text" id="edit_feature_image_path" name="feature_image_path"
+                                               placeholder="nama-file.jpg" 
+                                               class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/uploads/service/</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-end space-x-3 mt-6">
+                                <button type="button" onclick="closeEditFeatureModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Batal
+                                </button>
+                                <button type="submit" name="edit_feature" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    Simpan Perubahan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Delete Feature Modal -->
+                <div id="deleteFeatureModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">Hapus Layanan</h3>
+                            <button type="button" onclick="closeDeleteFeatureModal()" class="text-gray-400 hover:text-gray-500">
+                                <i class="bx bx-x text-2xl"></i>
+                            </button>
+                        </div>
+                        <p class="text-gray-700 mb-6">Apakah Anda yakin ingin menghapus layanan <span id="delete_feature_name" class="font-semibold"></span>?</p>
+                        <form method="POST" action="?tab=features">
+                            <input type="hidden" id="delete_feature_id" name="feature_id">
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" onclick="closeDeleteFeatureModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Batal
+                                </button>
+                                <button type="submit" name="delete_feature" class="px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                    Hapus Layanan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <!-- Footer -->
+                <div class="text-center text-gray-500 text-sm mt-8 pb-6">
+                    <p>&copy; 2023 Akademi Merdeka Admin Dashboard. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Konstanta untuk path gambar
+        const servicesImagePath = 'assets/uploads/service/';
+        
+        // Category Modals
+        function openEditCategoryModal(id, name) {
+            document.getElementById('edit_category_id').value = id;
+            document.getElementById('edit_category_name').value = name;
+            document.getElementById('editCategoryModal').classList.remove('hidden');
+        }
+        
+        function closeEditCategoryModal() {
+            document.getElementById('editCategoryModal').classList.add('hidden');
+        }
+        
+        function openDeleteCategoryModal(id, name) {
+            document.getElementById('delete_category_id').value = id;
+            document.getElementById('delete_category_name').textContent = name;
+            document.getElementById('deleteCategoryModal').classList.remove('hidden');
+        }
+        
+        function closeDeleteCategoryModal() {
+            document.getElementById('deleteCategoryModal').classList.add('hidden');
+        }
+        
+        // Feature Modals
+        function openAddFeatureModal() {
+            // Reset form
+            const form = document.querySelector('#addFeatureModal form');
+            if (form) {
+                form.reset();
+            }
+            
+            document.getElementById('addFeatureModal').classList.remove('hidden');
+        }
+        
+        function closeAddFeatureModal() {
+            document.getElementById('addFeatureModal').classList.add('hidden');
+        }
+        
+        function openEditFeatureModal(id, name, categoryId, path, imagePath) {
+            document.getElementById('edit_feature_id').value = id;
+            document.getElementById('edit_feature_name').value = name;
+            document.getElementById('edit_feature_category_id').value = categoryId;
+            document.getElementById('edit_feature_path').value = path;
+            document.getElementById('old_image_path').value = imagePath;
+            
+            // Extract filename from full path jika path dimulai dengan services dir path
+            if (imagePath && imagePath.startsWith(servicesImagePath)) {
+                document.getElementById('edit_feature_image_path').value = imagePath.substring(servicesImagePath.length);
+            } else {
+                document.getElementById('edit_feature_image_path').value = imagePath;
+            }
+            
+            // Set current image preview
+            const currentImageEl = document.getElementById('current_image');
+            const currentImagePathEl = document.getElementById('current_image_path');
+            
+            if (imagePath && imagePath.trim() !== '') {
+                currentImageEl.src = '../../../' + imagePath;
+                currentImagePathEl.textContent = imagePath;
+                document.getElementById('current_image_preview').classList.remove('hidden');
+            } else {
+                document.getElementById('current_image_preview').classList.add('hidden');
+            }
+            
+            document.getElementById('editFeatureModal').classList.remove('hidden');
+        }
+        
+        function closeEditFeatureModal() {
+            document.getElementById('editFeatureModal').classList.add('hidden');
+        }
+        
+        function openDeleteFeatureModal(id, name) {
+            document.getElementById('delete_feature_id').value = id;
+            document.getElementById('delete_feature_name').textContent = name;
+            document.getElementById('deleteFeatureModal').classList.remove('hidden');
+        }
+        
+        function closeDeleteFeatureModal() {
+            document.getElementById('deleteFeatureModal').classList.add('hidden');
+        }
+        
+        // Form handling untuk path otomatis
+        document.addEventListener('DOMContentLoaded', function() {
+            // Form untuk menambah layanan
+            const addForm = document.querySelector('#addFeatureModal form');
+            if (addForm) {
+                addForm.addEventListener('submit', function(e) {
+                    const imagePathInput = document.getElementById('feature_image_path');
+                    if (imagePathInput && imagePathInput.value && !imagePathInput.value.includes('/')) {
+                        // User memasukkan hanya nama file, tambahkan prefix path
+                        imagePathInput.value = servicesImagePath + imagePathInput.value;
+                    }
+                });
+            }
+            
+            // Form untuk mengedit layanan
+            const editForm = document.querySelector('#editFeatureModal form');
+            if (editForm) {
+                editForm.addEventListener('submit', function(e) {
+                    const editImagePathInput = document.getElementById('edit_feature_image_path');
+                    if (editImagePathInput && editImagePathInput.value && !editImagePathInput.value.includes('/')) {
+                        // User memasukkan hanya nama file, tambahkan prefix path
+                        editImagePathInput.value = servicesImagePath + editImagePathInput.value;
+                    }
+                });
+            }
+        });
+        
+        // Close modals when clicking outside
+        window.addEventListener('click', function(event) {
+            const modals = [
+                { element: document.getElementById('editCategoryModal'), close: closeEditCategoryModal },
+                { element: document.getElementById('deleteCategoryModal'), close: closeDeleteCategoryModal },
+                { element: document.getElementById('addFeatureModal'), close: closeAddFeatureModal },
+                { element: document.getElementById('editFeatureModal'), close: closeEditFeatureModal },
+                { element: document.getElementById('deleteFeatureModal'), close: closeDeleteFeatureModal }
+            ];
+            
+            modals.forEach(modal => {
+                if (event.target === modal.element) {
+                    modal.close();
+                }
+            });
+        });
+        
+        // Add escape key handler for modals
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                const modals = [
+                    { element: document.getElementById('editCategoryModal'), close: closeEditCategoryModal },
+                    { element: document.getElementById('deleteCategoryModal'), close: closeDeleteCategoryModal },
+                    { element: document.getElementById('addFeatureModal'), close: closeAddFeatureModal },
+                    { element: document.getElementById('editFeatureModal'), close: closeEditFeatureModal },
+                    { element: document.getElementById('deleteFeatureModal'), close: closeDeleteFeatureModal }
+                ];
+                
+                modals.forEach(modal => {
+                    if (!modal.element.classList.contains('hidden')) {
+                        modal.close();
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>
