@@ -28,16 +28,16 @@ function handleImageUpload($fileInput, $oldPath = null) {
         @mkdir($rootPath . '/assets', 0777);
     }
     
-    if (!file_exists($rootPath . '/assets/uploads')) {
-        @mkdir($rootPath . '/assets/uploads', 0777);
+    if (!file_exists($rootPath . '/assets/images/uploads')) {
+        @mkdir($rootPath . '/assets/images/uploads', 0777);
     }
     
-    if (!file_exists($rootPath . '/assets/uploads/services')) {
-        @mkdir($rootPath . '/assets/uploads/services', 0777);
+    if (!file_exists($rootPath . '/assets/images/uploads/services')) {
+        @mkdir($rootPath . '/assets/images/uploads/services', 0777);
     }
     
     // Set direktori upload (dengan slash sebelum assets)
-    $uploadDirectory = $rootPath . '/assets/uploads/services/';
+    $uploadDirectory = $rootPath . '/assets/images/uploads/services/';
     
     // Periksa jika direktori dapat ditulis
     if (!is_writable($uploadDirectory)) {
@@ -72,7 +72,7 @@ function handleImageUpload($fileInput, $oldPath = null) {
         // Move the uploaded file
         if (@move_uploaded_file($tempFile, $targetPath)) {
             // Get the relative path for the database (from website root)
-            $relativePath = 'assets/uploads/services/' . $newFilename;
+            $relativePath = 'assets/images/uploads/services/' . $newFilename;
             return [
                 'success' => true,
                 'path' => $relativePath
@@ -94,6 +94,7 @@ function handleImageUpload($fileInput, $oldPath = null) {
         'path' => $oldPath
     ];
 }
+
 // Process form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
@@ -113,13 +114,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             
             $conn->commit();
-            $message = "Kategori berhasil ditambahkan!";
-            $messageType = "success";
-            $activeTab = 'categories';
+            $_SESSION['message'] = "Kategori berhasil ditambahkan!";
+            $_SESSION['message_type'] = "success";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=categories");
+            exit;
         } catch (Exception $e) {
             $conn->rollBack();
-            $message = "Error menambahkan kategori: " . $e->getMessage();
-            $messageType = "error";
+            $_SESSION['message'] = "Error menambahkan kategori: " . $e->getMessage();
+            $_SESSION['message_type'] = "error";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=categories");
+            exit;
         }
     }
     
@@ -141,13 +149,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             
             $conn->commit();
-            $message = "Kategori berhasil diperbarui!";
-            $messageType = "success";
-            $activeTab = 'categories';
+            $_SESSION['message'] = "Kategori berhasil diperbarui!";
+            $_SESSION['message_type'] = "success";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=categories");
+            exit;
         } catch (Exception $e) {
             $conn->rollBack();
-            $message = "Error memperbarui kategori: " . $e->getMessage();
-            $messageType = "error";
+            $_SESSION['message'] = "Error memperbarui kategori: " . $e->getMessage();
+            $_SESSION['message_type'] = "error";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=categories");
+            exit;
         }
     }
     
@@ -172,13 +187,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             
             $conn->commit();
-            $message = "Kategori berhasil dihapus!";
-            $messageType = "success";
-            $activeTab = 'categories';
+            $_SESSION['message'] = "Kategori berhasil dihapus!";
+            $_SESSION['message_type'] = "success";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=categories");
+            exit;
         } catch (Exception $e) {
             $conn->rollBack();
-            $message = "Error menghapus kategori: " . $e->getMessage();
-            $messageType = "error";
+            $_SESSION['message'] = "Error menghapus kategori: " . $e->getMessage();
+            $_SESSION['message_type'] = "error";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=categories");
+            exit;
         }
     }
     
@@ -211,7 +233,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Jika user memasukkan hanya nama file tanpa path lengkap
                 $inputPath = $_POST['feature_image_path'];
                 if (!strstr($inputPath, '/')) {
-                    $imagePath = 'assets/uploads/services/' . $inputPath;
+                    $imagePath = 'assets/images/uploads/services/' . $inputPath;
                 } else {
                     $imagePath = $inputPath;
                 }
@@ -230,13 +252,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             
             $conn->commit();
-            $message = "Layanan berhasil ditambahkan!";
-            $messageType = "success";
-            $activeTab = 'features';
+            $_SESSION['message'] = "Layanan berhasil ditambahkan!";
+            $_SESSION['message_type'] = "success";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=features");
+            exit;
         } catch (Exception $e) {
             $conn->rollBack();
-            $message = "Error menambahkan layanan: " . $e->getMessage();
-            $messageType = "error";
+            $_SESSION['message'] = "Error menambahkan layanan: " . $e->getMessage();
+            $_SESSION['message_type'] = "error";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=features");
+            exit;
         }
     }
     
@@ -271,7 +300,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Jika user memasukkan hanya nama file tanpa path lengkap
                 $inputPath = $_POST['feature_image_path'];
                 if (!strstr($inputPath, '/')) {
-                    $imagePath = 'assets/uploads/services/' . $inputPath;
+                    $imagePath = 'assets/images/uploads/services/' . $inputPath;
                 } else {
                     $imagePath = $inputPath;
                 }
@@ -292,13 +321,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             
             $conn->commit();
-            $message = "Layanan berhasil diperbarui!";
-            $messageType = "success";
-            $activeTab = 'features';
+            $_SESSION['message'] = "Layanan berhasil diperbarui!";
+            $_SESSION['message_type'] = "success";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=features");
+            exit;
         } catch (Exception $e) {
             $conn->rollBack();
-            $message = "Error memperbarui layanan: " . $e->getMessage();
-            $messageType = "error";
+            $_SESSION['message'] = "Error memperbarui layanan: " . $e->getMessage();
+            $_SESSION['message_type'] = "error";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=features");
+            exit;
         }
     }
     
@@ -314,15 +350,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute();
             
             $conn->commit();
-            $message = "Layanan berhasil dihapus!";
-            $messageType = "success";
-            $activeTab = 'features';
+            $_SESSION['message'] = "Layanan berhasil dihapus!";
+            $_SESSION['message_type'] = "success";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=features");
+            exit;
         } catch (Exception $e) {
             $conn->rollBack();
-            $message = "Error menghapus layanan: " . $e->getMessage();
-            $messageType = "error";
+            $_SESSION['message'] = "Error menghapus layanan: " . $e->getMessage();
+            $_SESSION['message_type'] = "error";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=features");
+            exit;
         }
     }
+}
+
+// Display message from session if exists
+if (isset($_SESSION['message']) && isset($_SESSION['message_type'])) {
+    $message = $_SESSION['message'];
+    $messageType = $_SESSION['message_type'];
+    
+    // Clear the session variables
+    unset($_SESSION['message']);
+    unset($_SESSION['message_type']);
 }
 
 // Fetch all categories
@@ -624,20 +677,20 @@ try {
                                 <div class="flex flex-col space-y-2">
                                     <input type="file" id="feature_image" name="feature_image" 
                                            class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                    <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Gambar akan disimpan di <strong>assets/images/services/</strong></p>
+                                    <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Gambar akan disimpan di <strong>assets/images/images/services/</strong></p>
                                 </div>
                                 
                                 <!-- <div class="mt-3">
                                     <label for="feature_image_path" class="block text-sm font-medium text-gray-700 mb-1">Atau Gunakan Gambar yang Sudah Ada</label>
                                     <div class="flex">
                                         <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md">
-                                            assets/images/services/
+                                            assets/images/images/services/
                                         </span>
                                         <input type="text" id="feature_image_path" name="feature_image_path"
                                                placeholder="nama-file.jpg" 
                                                class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     </div>
-                                    <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/images/services/</p>
+                                    <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/images/images/services/</p>
                                 </div> -->
                             </div>
                             
@@ -713,20 +766,20 @@ try {
                                 <div class="flex flex-col space-y-2">
                                     <input type="file" id="edit_feature_image" name="feature_image" 
                                         class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                    <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Gambar akan disimpan di direktori assets/uploads/services/</p>
+                                    <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Gambar akan disimpan di direktori assets/images/uploads/services/</p>
                                 </div>
                                 
                                 <div class="mt-3">
                                     <label for="edit_feature_image_path" class="block text-sm font-medium text-gray-700 mb-1">Atau Gunakan Gambar yang Sudah Ada</label>
                                     <div class="flex">
                                         <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md">
-                                            assets/uploads/services/
+                                            assets/images/uploads/services/
                                         </span>
                                         <input type="text" id="edit_feature_image_path" name="feature_image_path"
                                             placeholder="nama-file.jpg" 
                                             class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     </div>
-                                    <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/uploads/services/</p>
+                                    <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/images/uploads/services/</p>
                                 </div>
                             </div>
                         </div>
@@ -781,7 +834,7 @@ try {
     
     <script>
         // Konstanta untuk path gambar
-        const servicesImagePath = 'assets/uploads/services/';
+        const servicesImagePath = 'assets/images/uploads/services/';
         
         // Category Modals
         function openEditCategoryModal(id, name) {
