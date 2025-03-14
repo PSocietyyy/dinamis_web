@@ -4,11 +4,11 @@ $rootPath = dirname(dirname(dirname(__DIR__)));
 if (!file_exists($rootPath . '/assets')) {
     @mkdir($rootPath . '/assets', 0777);
 }
-if (!file_exists($rootPath . '/assets/uploads')) {
-    @mkdir($rootPath . '/assets/uploads', 0777);
+if (!file_exists($rootPath . '/assets/images/uploads')) {
+    @mkdir($rootPath . '/assets/images/uploads', 0777);
 }
-if (!file_exists($rootPath . '/assets/uploads/home')) {
-    @mkdir($rootPath . '/assets/uploads/home', 0777);
+if (!file_exists($rootPath . '/assets/images/uploads/home')) {
+    @mkdir($rootPath . '/assets/images/uploads/home', 0777);
 }
 
 // Start the session
@@ -24,7 +24,7 @@ if(!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 require_once('../../../config.php');
 
 // Configuration
-$uploadDirectory = dirname(dirname(dirname(__DIR__))) . '/assets/uploads/home/';
+$uploadDirectory = dirname(dirname(dirname(__DIR__))) . '/assets/images/uploads/home/';
 // Ensure directory exists with proper permissions
 if (!file_exists($uploadDirectory)) {
     // Create directory if it doesn't exist
@@ -63,24 +63,24 @@ function handleImageUpload($fileInput, $oldPath = null) {
         // Make sure upload directory exists and is writable
         if (!file_exists($uploadDirectory)) {
             // Try one more time to create it with explicit full path
-            $absolutePath = dirname(dirname(dirname(__DIR__))) . '/assets/uploads/home/';
+            $absolutePath = dirname(dirname(dirname(__DIR__))) . '/assets/images/uploads/home/';
             if (!@mkdir($absolutePath, 0777, true)) {
                 // Try creating parent directories one by one
                 $rootDir = dirname(dirname(dirname(__DIR__)));
                 if (!file_exists($rootDir . '/assets')) {
                     @mkdir($rootDir . '/assets', 0777);
                 }
-                if (!file_exists($rootDir . '/assets/uploads')) {
-                    @mkdir($rootDir . '/assets/uploads', 0777);
+                if (!file_exists($rootDir . '/assets/images/uploads')) {
+                    @mkdir($rootDir . '/assets/images/uploads', 0777);
                 }
-                if (!file_exists($rootDir . '/assets/uploads/home')) {
-                    @mkdir($rootDir . '/assets/uploads/home', 0777);
+                if (!file_exists($rootDir . '/assets/images/uploads/home')) {
+                    @mkdir($rootDir . '/assets/images/uploads/home', 0777);
                 }
                 
                 if (!file_exists($absolutePath)) {
                     return [
                         'success' => false,
-                        'message' => "Failed to create upload directory. Please create this directory manually: assets/uploads/home"
+                        'message' => "Failed to create upload directory. Please create this directory manually: assets/images/uploads/home"
                     ];
                 }
             }
@@ -104,7 +104,7 @@ function handleImageUpload($fileInput, $oldPath = null) {
         // Move the uploaded file
         if (@move_uploaded_file($tempFile, $targetPath)) {
             // Get the relative path for the database (from website root)
-            $relativePath = 'assets/uploads/home/' . $newFilename;
+            $relativePath = 'assets/images/uploads/home/' . $newFilename;
             return [
                 'success' => true,
                 'path' => $relativePath
