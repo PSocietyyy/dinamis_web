@@ -24,7 +24,8 @@ try {
         $banner = [
             'title' => 'Tim',
             'breadcrumb_text' => 'Tim',
-            'banner_image' => 'assets/images/shape/inner-shape.png'
+            'banner_image' => 'assets/images/shape/inner-shape.png',
+            'team_title' => 'Tim Kami'
         ];
     }
 } catch(PDOException $e) {
@@ -32,7 +33,8 @@ try {
     $banner = [
         'title' => 'Tim',
         'breadcrumb_text' => 'Tim',
-        'banner_image' => 'assets/images/shape/inner-shape.png'
+        'banner_image' => 'assets/images/shape/inner-shape.png',
+        'team_title' => 'Tim Kami'
     ];
 }
 ?>
@@ -85,7 +87,7 @@ try {
     <div class="team-area pt-100 pb-70">
       <div class="container">
         <div class="section-title text-center"><span class="sp-color2">Tim</span>
-          <h2>Tim Kami</h2>
+          <h2><?php echo htmlspecialchars($banner['team_title'] ?? 'Tim Kami'); ?></h2>
         </div>
         <div class="row pt-45">
           <?php foreach($teamMembers as $member): ?>

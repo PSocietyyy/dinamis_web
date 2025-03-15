@@ -243,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
-    // Delete team member
+    // Delete team member - separate form submission
     if (isset($_POST['delete_member'])) {
         try {
             $id = (int)$_POST['member_id'];
@@ -318,7 +318,7 @@ try {
         
         <div class="flex-1 lg:ml-64">
             <div class="bg-white p-4 shadow-sm flex justify-between items-center">
-                <h1 class="text-xl font-semibold text-gray-800">Edit Team Page</h1>
+                <h1 class="text-xl font-semibold text-gray-800">Edit Team Page (Fixed)</h1>
                 <div class="flex items-center space-x-4">
                     <a href="/team" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center">
                         <i class="bx bx-link-external mr-1"></i> View Team Page
@@ -411,6 +411,7 @@ try {
                         <p class="text-sm text-gray-500 mt-1">Manage team members displayed on the team page</p>
                     </div>
                     <div class="p-6">
+                        <!-- Team Members Update Form -->
                         <form method="POST" action="" enctype="multipart/form-data">
                             <!-- Current Team Members -->
                             <div class="space-y-6">
@@ -472,12 +473,10 @@ try {
                                                 </div>
                                                 
                                                 <div class="mt-4">
-                                                    <form method="POST" action="" class="inline">
-                                                        <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
-                                                        <button type="submit" name="delete_member" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500" onclick="return confirm('Are you sure you want to delete this team member?');">
-                                                            <i class="bx bx-trash mr-1.5"></i> Delete
-                                                        </button>
-                                                    </form>
+                                                    <!-- Delete button is now NOT inside a separate form -->
+                                                    <a href="#" onclick="deleteTeamMember(<?php echo $member['id']; ?>); return false;" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                                                        <i class="bx bx-trash mr-1.5"></i> Delete
+                                                    </a>
                                                 </div>
                                             </div>
                                         </div>
@@ -521,6 +520,12 @@ try {
                                     <i class="bx bx-save mr-2"></i> Save Team Members
                                 </button>
                             </div>
+                        </form>
+                        
+                        <!-- Separate form for deleting team members -->
+                        <form id="delete-form" method="POST" action="" style="display: none;">
+                            <input type="hidden" id="member_id" name="member_id" value="">
+                            <input type="hidden" name="delete_member" value="1">
                         </form>
                     </div>
                 </div>
@@ -583,6 +588,14 @@ try {
     </div>
     
     <script>
+        // Function to handle team member deletion
+        function deleteTeamMember(memberId) {
+            if (confirm('Are you sure you want to delete this team member?')) {
+                document.getElementById('member_id').value = memberId;
+                document.getElementById('delete-form').submit();
+            }
+        }
+        
         // Preview uploaded images before submission
         document.addEventListener('DOMContentLoaded', function() {
             // For banner image

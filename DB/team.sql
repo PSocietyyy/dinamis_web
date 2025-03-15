@@ -1,7 +1,7 @@
 -- Team members and page banner database structure for Akademi Merdeka
 USE akademi_merdeka;
 
--- Create page banners table
+-- Create team banners table
 CREATE TABLE IF NOT EXISTS team_banners (
     id INT AUTO_INCREMENT PRIMARY KEY,
     page_slug VARCHAR(100) NOT NULL UNIQUE,
@@ -14,6 +14,12 @@ CREATE TABLE IF NOT EXISTS team_banners (
 -- Insert default banner for team page
 INSERT INTO team_banners (page_slug, title, breadcrumb_text, banner_image) VALUES
 ('team', 'Tim', 'Tim', 'assets/images/shape/inner-shape.png');
+
+-- Add team_title to the team_banners table if it doesn't exist
+ALTER TABLE team_banners ADD COLUMN team_title VARCHAR(100) DEFAULT 'Tim Kami' AFTER banner_image;
+
+-- Update the existing record with the default team title if it exists
+UPDATE team_banners SET team_title = 'Tim Kami' WHERE page_slug = 'team' AND team_title IS NULL;
 
 -- Create team members table
 CREATE TABLE IF NOT EXISTS team_members (
