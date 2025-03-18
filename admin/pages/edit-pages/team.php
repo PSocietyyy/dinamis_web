@@ -23,17 +23,14 @@ if (!file_exists($uploadDirectory)) {
     mkdir($uploadDirectory, 0755, true);
 }
 
-// Handle file uploads
 function handleImageUpload($fileInput, $oldPath = null) {
     global $uploadDirectory;
     
-    // Check if a file was uploaded
     if (isset($_FILES[$fileInput]) && $_FILES[$fileInput]['error'] === UPLOAD_ERR_OK) {
         $tempFile = $_FILES[$fileInput]['tmp_name'];
         $fileInfo = pathinfo($_FILES[$fileInput]['name']);
         $extension = strtolower($fileInfo['extension']);
         
-        // Validate file type
         $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
         if (!in_array($extension, $allowedExtensions)) {
             return [
