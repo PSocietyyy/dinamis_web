@@ -26,6 +26,79 @@ if(!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 // Include database connection
 require_once('../../../config.php');
 
+// Create database tables if they don't exist
+try {
+    // Create testimonial_page_settings table if it doesn't exist
+    $createSettingsTable = "CREATE TABLE IF NOT EXISTS testimonial_page_settings (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        page_title VARCHAR(255) NOT NULL DEFAULT 'Testimoni',
+        meta_description TEXT,
+        breadcrumb_parent VARCHAR(100) DEFAULT 'Tentang',
+        breadcrumb_current VARCHAR(100) DEFAULT 'Testimoni',
+        section_title VARCHAR(255) DEFAULT 'Testimoni Customer',
+        section_subtitle VARCHAR(255) DEFAULT 'Apa Kata Mereka?',
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )";
+    $conn->exec($createSettingsTable);
+    
+    // Create testimonials table if it doesn't exist
+    $createTestimonialsTable = "CREATE TABLE IF NOT EXISTS testimonials (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        client_name VARCHAR(100) NOT NULL,
+        client_position VARCHAR(100),
+        testimonial_text TEXT NOT NULL,
+        client_image VARCHAR(255),
+        is_active BOOLEAN DEFAULT TRUE,
+        display_order INT DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )";
+    $conn->exec($createTestimonialsTable);
+    
+    // Insert default settings if not exist
+    $checkSettings = $conn->query("SELECT COUNT(*) FROM testimonial_page_settings");
+    if ($checkSettings->fetchColumn() == 0) {
+        $defaultSettings = "INSERT INTO testimonial_page_settings (
+            id, page_title, meta_description, 
+            breadcrumb_parent, breadcrumb_current,
+            section_title, section_subtitle
+        ) VALUES (
+            1, 'Testimoni', 'Testimoni dari pelanggan Akademi Merdeka',
+            'Tentang', 'Testimoni',
+            'Testimoni Customer', 'Apa Kata Mereka?'
+        )";
+        $conn->exec($defaultSettings);
+    }
+    
+    // Import data from home_testimonials if testimonials table is empty
+    $checkTestimonials = $conn->query("SELECT COUNT(*) FROM testimonials");
+    if ($checkTestimonials->fetchColumn() == 0) {
+        try {
+            $conn->query("SELECT * FROM home_testimonials LIMIT 1");
+            $importData = "INSERT INTO testimonials (
+                client_name, client_position, testimonial_text, 
+                client_image, is_active, display_order
+            ) SELECT 
+                client_name, client_position, testimonial_text, 
+                client_image, is_active, display_order 
+            FROM home_testimonials";
+            $conn->exec($importData);
+        } catch (PDOException $e) {
+            // home_testimonials doesn't exist, insert default testimonials
+            $defaultTestimonials = "INSERT INTO testimonials (client_name, client_position, testimonial_text, client_image, is_active, display_order) VALUES
+            ('Bayu Saputra', 'Mahasiswa', '\"Adanya tim Akademi Merdeka membantu saya dalam penerbitan jurnal dengan metode yang efektif, membuat saya cepat memahami.\"', 'assets/images/clients-img/testi-4.jpg', 1, 1),
+            ('Aryo Supratman', 'Dosen', '\"Akademi Merdeka tidak hanya sekedar membantu dalam kenaikan Jabatan Fungsional, namun sebagai penasehat dan pendengar yang baik. Tim sangat responsif dan tanggap jika ada persoalan.\"', 'assets/images/clients-img/testi-3.jpg', 1, 2),
+            ('Syadid', 'Mahasiswa', '\"Tim Akademi Merdeka membantu pembuatan media ajar mulai dari penyusunan indikator dan memberikan inovasi yang sangat baik.\"', 'assets/images/clients-img/testi-6.jpg', 1, 3),
+            ('Alya Afifah', 'Mahasiswa', '\"Desain yang diberikan oleh tim Akademi Merdeka sangat kekinian, sehingga buku yang diterbitkan semakin menarik perhatian pembaca.\"', 'assets/images/clients-img/testi-1.jpg', 1, 4),
+            ('Arini Sulistiawati', 'Mahasiswa', '\"Pelayanan Pembuatan HKI sangat cepat. Tim hanya memerlukan 20 menit saja untuk mengirimkan sertifikat HKI kepada saya.\"', 'assets/images/clients-img/testi-2.jpg', 1, 5)";
+            $conn->exec($defaultTestimonials);
+        }
+    }
+} catch (PDOException $e) {
+    // Log the error but continue with the page
+    error_log("Error creating tables: " . $e->getMessage());
+}
+
 // Configuration
 $uploadDirectory = $rootPath . '/assets/images/uploads/testimonial/';
 // Ensure directory exists with proper permissions
@@ -142,36 +215,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Prepare data
             $pageTitle = $_POST['page_title'] ?? 'Testimoni';
-            $pageSubtitle = $_POST['page_subtitle'] ?? 'Apa Kata Mereka?';
             $metaDescription = $_POST['meta_description'] ?? 'Testimoni dari pelanggan Akademi Merdeka';
-            
-            // Check if table exists, if not create it
-            try {
-                $stmt = $conn->query("SELECT 1 FROM testimonial_page_settings LIMIT 1");
-            } catch(PDOException $e) {
-                // Table doesn't exist, create it
-                $createTable = "CREATE TABLE IF NOT EXISTS testimonial_page_settings (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    page_title VARCHAR(255) NOT NULL,
-                    page_subtitle VARCHAR(255) NOT NULL,
-                    meta_description TEXT,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                )";
-                $conn->exec($createTable);
-            }
+            $breadcrumbParent = $_POST['breadcrumb_parent'] ?? 'Tentang';
+            $breadcrumbCurrent = $_POST['breadcrumb_current'] ?? 'Testimoni';
+            $sectionTitle = $_POST['section_title'] ?? 'Testimoni Customer';
+            $sectionSubtitle = $_POST['section_subtitle'] ?? 'Apa Kata Mereka?';
             
             // Update or insert page settings
             $stmt = $conn->prepare("INSERT INTO testimonial_page_settings 
-                                 (id, page_title, page_subtitle, meta_description) 
-                                 VALUES (1, :page_title, :page_subtitle, :meta_description)
+                                 (id, page_title, meta_description, 
+                                 breadcrumb_parent, breadcrumb_current,
+                                 section_title, section_subtitle) 
+                                 VALUES (1, :page_title, :meta_description,
+                                 :breadcrumb_parent, :breadcrumb_current,
+                                 :section_title, :section_subtitle)
                                  ON DUPLICATE KEY UPDATE 
                                  page_title = VALUES(page_title), 
-                                 page_subtitle = VALUES(page_subtitle), 
-                                 meta_description = VALUES(meta_description)");
+                                 meta_description = VALUES(meta_description),
+                                 breadcrumb_parent = VALUES(breadcrumb_parent),
+                                 breadcrumb_current = VALUES(breadcrumb_current),
+                                 section_title = VALUES(section_title),
+                                 section_subtitle = VALUES(section_subtitle)");
             
             $stmt->bindParam(':page_title', $pageTitle);
-            $stmt->bindParam(':page_subtitle', $pageSubtitle);
             $stmt->bindParam(':meta_description', $metaDescription);
+            $stmt->bindParam(':breadcrumb_parent', $breadcrumbParent);
+            $stmt->bindParam(':breadcrumb_current', $breadcrumbCurrent);
+            $stmt->bindParam(':section_title', $sectionTitle);
+            $stmt->bindParam(':section_subtitle', $sectionSubtitle);
             $stmt->execute();
             
             $conn->commit();
@@ -188,49 +259,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif (isset($_POST['update_testimonials'])) {
         try {
             $conn->beginTransaction();
-            
-            // First check if testimonials table exists, if not create it
-            try {
-                $stmt = $conn->query("SELECT 1 FROM testimonials LIMIT 1");
-            } catch(PDOException $e) {
-                // Table doesn't exist, create it
-                $createTable = "CREATE TABLE IF NOT EXISTS testimonials (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    client_name VARCHAR(100) NOT NULL,
-                    client_position VARCHAR(100),
-                    testimonial_text TEXT NOT NULL,
-                    client_image VARCHAR(255),
-                    is_active BOOLEAN DEFAULT TRUE,
-                    display_order INT DEFAULT 0,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                )";
-                $conn->exec($createTable);
-                
-                // Import data from home_testimonials if it exists
-                try {
-                    $stmt = $conn->query("SELECT * FROM home_testimonials");
-                    $homeTestimonials = $stmt->fetchAll();
-                    
-                    if (!empty($homeTestimonials)) {
-                        foreach ($homeTestimonials as $testimonial) {
-                            $stmt = $conn->prepare("INSERT INTO testimonials 
-                                                (client_name, client_position, testimonial_text, client_image, is_active, display_order)
-                                                VALUES (:name, :position, :text, :image, :active, :order)");
-                            
-                            $stmt->bindParam(':name', $testimonial['client_name']);
-                            $stmt->bindParam(':position', $testimonial['client_position']);
-                            $stmt->bindParam(':text', $testimonial['testimonial_text']);
-                            $stmt->bindParam(':image', $testimonial['client_image']);
-                            $stmt->bindParam(':active', $testimonial['is_active']);
-                            $stmt->bindParam(':order', $testimonial['display_order']);
-                            $stmt->execute();
-                        }
-                    }
-                } catch(PDOException $e) {
-                    // home_testimonials table doesn't exist or other error, continue with empty testimonials
-                }
-            }
             
             // Handle testimonial items
             if (isset($_POST['testimonial_ids']) && is_array($_POST['testimonial_ids'])) {
@@ -374,43 +402,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Fetch page settings
 $pageSettings = [];
 try {
-    // Check if table exists first
-    try {
-        $stmt = $conn->query("SELECT * FROM testimonial_page_settings WHERE id = 1 LIMIT 1");
-        $pageSettings = $stmt->fetch() ?: [];
-    } catch(PDOException $e) {
-        // Table doesn't exist yet, use default values
-        $pageSettings = [
-            'page_title' => 'Testimoni',
-            'page_subtitle' => 'Apa Kata Mereka?',
-            'meta_description' => 'Testimoni dari pelanggan Akademi Merdeka'
-        ];
-    }
+    $stmt = $conn->query("SELECT * FROM testimonial_page_settings WHERE id = 1 LIMIT 1");
+    $pageSettings = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 } catch(PDOException $e) {
-    $message = "Error fetching page settings: " . $e->getMessage();
-    $messageType = "error";
+    // Handle error silently, use default values
+    $pageSettings = [
+        'page_title' => 'Testimoni',
+        'meta_description' => 'Testimoni dari pelanggan Akademi Merdeka',
+        'breadcrumb_parent' => 'Tentang',
+        'breadcrumb_current' => 'Testimoni',
+        'section_title' => 'Testimoni Customer',
+        'section_subtitle' => 'Apa Kata Mereka?'
+    ];
 }
 
 // Fetch testimonials data
 $testimonialsData = [];
 try {
-    // Check if table exists first
-    try {
-        $stmt = $conn->query("SELECT * FROM testimonials ORDER BY display_order ASC");
-        $testimonialsData = $stmt->fetchAll();
-    } catch(PDOException $e) {
-        // Table doesn't exist yet, try to get data from home_testimonials
-        try {
-            $stmt = $conn->query("SELECT * FROM home_testimonials ORDER BY display_order ASC");
-            $testimonialsData = $stmt->fetchAll();
-        } catch(PDOException $e2) {
-            // Neither table exists yet, use empty array
-            $testimonialsData = [];
-        }
-    }
+    $stmt = $conn->query("SELECT * FROM testimonials ORDER BY display_order ASC");
+    $testimonialsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch(PDOException $e) {
-    $message = "Error fetching testimonials: " . $e->getMessage();
-    $messageType = "error";
+    // Handle error silently
+    $testimonialsData = [];
 }
 ?>
 
@@ -458,32 +471,94 @@ try {
                 <div class="bg-white rounded-lg shadow-sm overflow-hidden">
                     <div class="p-6 border-b border-gray-200">
                         <h2 class="text-lg font-semibold text-gray-800">Page Settings</h2>
-                        <p class="text-sm text-gray-500 mt-1">Customize the testimonial page header and metadata</p>
+                        <p class="text-sm text-gray-500 mt-1">Customize all text elements on the testimonial page</p>
                     </div>
                     <div class="p-6">
                         <form method="POST" action="?tab=settings">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div>
-                                    <label for="page_title" class="block text-sm font-medium text-gray-700 mb-1">Page Title</label>
-                                    <input type="text" id="page_title" name="page_title" 
-                                           value="<?php echo htmlspecialchars($pageSettings['page_title'] ?? 'Testimoni'); ?>" 
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <p class="mt-1 text-xs text-gray-500">This appears in the page header and browser title.</p>
+                            <!-- Main Page Settings -->
+                            <div class="p-4 border border-gray-200 rounded-lg mb-6">
+                                <h3 class="text-md font-medium text-gray-800 mb-4">Page Header Settings</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label for="page_title" class="block text-sm font-medium text-gray-700 mb-1">Page Title</label>
+                                        <input type="text" id="page_title" name="page_title" 
+                                               value="<?php echo htmlspecialchars($pageSettings['page_title'] ?? 'Testimoni'); ?>" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <p class="mt-1 text-xs text-gray-500">This appears in the page header and browser title.</p>
+                                    </div>
+    
                                 </div>
-                                <div>
-                                    <label for="page_subtitle" class="block text-sm font-medium text-gray-700 mb-1">Page Subtitle</label>
-                                    <input type="text" id="page_subtitle" name="page_subtitle" 
-                                           value="<?php echo htmlspecialchars($pageSettings['page_subtitle'] ?? 'Apa Kata Mereka?'); ?>" 
-                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    <p class="mt-1 text-xs text-gray-500">This appears below the section title on the page.</p>
+                                
+                                <div class="mt-4">
+                                    <label for="meta_description" class="block text-sm font-medium text-gray-700 mb-1">Meta Description</label>
+                                    <textarea id="meta_description" name="meta_description" rows="3" 
+                                             class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><?php echo htmlspecialchars($pageSettings['meta_description'] ?? 'Testimoni dari pelanggan Akademi Merdeka'); ?></textarea>
+                                    <p class="mt-1 text-xs text-gray-500">Meta description for SEO purposes. Recommended length: 150-160 characters.</p>
                                 </div>
                             </div>
                             
-                            <div class="mt-6">
-                                <label for="meta_description" class="block text-sm font-medium text-gray-700 mb-1">Meta Description</label>
-                                <textarea id="meta_description" name="meta_description" rows="3" 
-                                         class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"><?php echo htmlspecialchars($pageSettings['meta_description'] ?? 'Testimoni dari pelanggan Akademi Merdeka'); ?></textarea>
-                                <p class="mt-1 text-xs text-gray-500">Meta description for SEO purposes. Recommended length: 150-160 characters.</p>
+                            <!-- Breadcrumb Settings -->
+                            <div class="p-4 border border-gray-200 rounded-lg mb-6">
+                                <h3 class="text-md font-medium text-gray-800 mb-4">Breadcrumb Settings</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label for="breadcrumb_parent" class="block text-sm font-medium text-gray-700 mb-1">Parent Link Text</label>
+                                        <input type="text" id="breadcrumb_parent" name="breadcrumb_parent" 
+                                               value="<?php echo htmlspecialchars($pageSettings['breadcrumb_parent'] ?? 'Tentang'); ?>" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <p class="mt-1 text-xs text-gray-500">The first item in the breadcrumb navigation.</p>
+                                    </div>
+                                    <div>
+                                        <label for="breadcrumb_current" class="block text-sm font-medium text-gray-700 mb-1">Current Page Text</label>
+                                        <input type="text" id="breadcrumb_current" name="breadcrumb_current" 
+                                               value="<?php echo htmlspecialchars($pageSettings['breadcrumb_current'] ?? 'Testimoni'); ?>" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <p class="mt-1 text-xs text-gray-500">The current page in the breadcrumb navigation.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Section Title Settings -->
+                            <div class="p-4 border border-gray-200 rounded-lg mb-6">
+                                <h3 class="text-md font-medium text-gray-800 mb-4">Section Title Settings</h3>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label for="section_title" class="block text-sm font-medium text-gray-700 mb-1">Section Header</label>
+                                        <input type="text" id="section_title" name="section_title" 
+                                               value="<?php echo htmlspecialchars($pageSettings['section_title'] ?? 'Testimoni Customer'); ?>" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <p class="mt-1 text-xs text-gray-500">The main heading above the testimonials.</p>
+                                    </div>
+                                    <div>
+                                        <label for="section_subtitle" class="block text-sm font-medium text-gray-700 mb-1">Section Subheader</label>
+                                        <input type="text" id="section_subtitle" name="section_subtitle" 
+                                               value="<?php echo htmlspecialchars($pageSettings['section_subtitle'] ?? 'Apa Kata Mereka?'); ?>" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <p class="mt-1 text-xs text-gray-500">The subheading displayed below the main heading.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Preview -->
+                            <div class="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
+                                <h3 class="text-md font-medium text-gray-800 mb-2">Page Preview</h3>
+                                <div class="bg-white p-4 rounded-lg border border-gray-300 mb-2">
+                                    <div class="text-center">
+                                        <h3 class="text-xl font-bold"><?php echo htmlspecialchars($pageSettings['page_title'] ?? 'Testimoni'); ?></h3>
+                                        <div class="text-sm text-gray-600 mt-1">
+                                            <span><?php echo htmlspecialchars($pageSettings['breadcrumb_parent'] ?? 'Tentang'); ?></span>
+                                            <span class="mx-2">›</span>
+                                            <span><?php echo htmlspecialchars($pageSettings['breadcrumb_current'] ?? 'Testimoni'); ?></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-white p-4 rounded-lg border border-gray-300">
+                                    <div class="text-center">
+                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"><?php echo htmlspecialchars($pageSettings['section_title'] ?? 'Testimoni Customer'); ?></span>
+                                        <h2 class="text-lg font-bold mt-1"><?php echo htmlspecialchars($pageSettings['section_subtitle'] ?? 'Apa Kata Mereka?'); ?></h2>
+                                    </div>
+                                </div>
                             </div>
                             
                             <div class="mt-6 flex justify-end">

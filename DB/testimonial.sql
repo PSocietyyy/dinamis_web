@@ -5,8 +5,11 @@ USE akademi_merdeka;
 CREATE TABLE IF NOT EXISTS testimonial_page_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
     page_title VARCHAR(255) NOT NULL DEFAULT 'Testimoni',
-    page_subtitle VARCHAR(255) NOT NULL DEFAULT 'Apa Kata Mereka?',
     meta_description TEXT,
+    breadcrumb_parent VARCHAR(100) DEFAULT 'Tentang',
+    breadcrumb_current VARCHAR(100) DEFAULT 'Testimoni',
+    section_title VARCHAR(255) DEFAULT 'Testimoni Customer',
+    section_subtitle VARCHAR(255) DEFAULT 'Apa Kata Mereka?',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
@@ -24,8 +27,16 @@ CREATE TABLE IF NOT EXISTS testimonials (
 );
 
 -- Insert default page settings
-INSERT INTO testimonial_page_settings (id, page_title, page_subtitle, meta_description) 
-VALUES (1, 'Testimoni', 'Apa Kata Mereka?', 'Testimoni dari pelanggan Akademi Merdeka')
+INSERT INTO testimonial_page_settings (
+    id, page_title, meta_description, 
+    breadcrumb_parent, breadcrumb_current, 
+    section_title, section_subtitle
+) x
+VALUES (
+    1, 'Testimoni', 'Testimoni dari pelanggan Akademi Merdeka',
+    'Tentang', 'Testimoni',
+    'Testimoni Customer', 'Apa Kata Mereka?'
+)
 ON DUPLICATE KEY UPDATE id = 1;
 
 -- Import testimonials from home_testimonials table if exists
