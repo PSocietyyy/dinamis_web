@@ -1,0 +1,35 @@
+POST data received:
+Member IDs: 1, 2, 3, 4, 5, 6
+Member Names: Moch. Guntur, Azharani Aliyyatunnisa, Nur Indah Septia, N, Siti Musyarrofah, Lusi Umayah, Ika Aprillia Putri
+Member Image Paths before: assets/images/uploads/team/team_67d98cdc214dc.png, assets/images/uploads/team/team_67d98ccb75b57.png, assets/images/uploads/team/team_67d98cd471550.png, assets/images/default-profile.png, assets/images/uploads/team/team_67d98ceca46fa.png, assets/images/uploads/team/team_67d98ce4a8c0d.png
+
+Processing member ID 1 (index 0):
+  Initial image path: assets/images/uploads/team/team_67d98cdc214dc.png
+  No new file uploaded, keeping existing path
+  Updated database for member ID 1
+
+Processing member ID 2 (index 1):
+  Initial image path: assets/images/uploads/team/team_67d98ccb75b57.png
+  No new file uploaded, keeping existing path
+  Updated database for member ID 2
+
+Processing member ID 3 (index 2):
+  Initial image path: assets/images/uploads/team/team_67d98cd471550.png
+  No new file uploaded, keeping existing path
+  Updated database for member ID 3
+
+Processing member ID 4 (index 3):
+  Initial image path: assets/images/default-profile.png
+  New file detected for member 3
+  New image path after upload: assets/images/uploads/team/team_67d98cfa47255.png
+  Updated database for member ID 4
+
+Processing member ID 5 (index 4):
+  Initial image path: assets/images/uploads/team/team_67d98ceca46fa.png
+  No new file uploaded, keeping existing path
+  Updated database for member ID 5
+
+Processing member ID 6 (index 5):
+  Initial image path: assets/images/uploads/team/team_67d98ce4a8c0d.png
+  No new file uploaded, keeping existing path
+  Updated database for member ID 6
