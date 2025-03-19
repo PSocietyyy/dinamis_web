@@ -1,4 +1,6 @@
 <?php
+// service.php
+
 // Start the session
 session_start();
 
@@ -345,6 +347,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             $featureId = (int)$_POST['feature_id'];
             
+            // Check if the feature is being used by any articles
+            $checkStmt = $conn->prepare("SELECT COUNT(*) FROM service_articles WHERE feature_id = :id");
+            $checkStmt->bindParam(':id', $featureId);
+            $checkStmt->execute();
+            
+            if ($checkStmt->fetchColumn() > 0) {
+                // Jika memiliki artikel terkait, hapus artikel terlebih dahulu
+                $delArticleStmt = $conn->prepare("DELETE FROM service_articles WHERE feature_id = :id");
+                $delArticleStmt->bindParam(':id', $featureId);
+                $delArticleStmt->execute();
+            }
+            
             $stmt = $conn->prepare("DELETE FROM service_features WHERE id = :id");
             $stmt->bindParam(':id', $featureId);
             $stmt->execute();
@@ -363,6 +377,152 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Redirect to prevent form resubmission on refresh
             header("Location: ?tab=features");
+            exit;
+        }
+    }
+    
+    // Add Article
+    elseif (isset($_POST['add_article'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $featureId = !empty($_POST['feature_id']) ? (int)$_POST['feature_id'] : null;
+            $title = trim($_POST['article_title']);
+            $content = $_POST['article_content']; // HTML content from Quill
+            
+            if (empty($title)) {
+                throw new Exception("Judul artikel harus diisi");
+            }
+            
+            if (empty($content)) {
+                throw new Exception("Konten artikel harus diisi");
+            }
+            
+            // Handle image upload for article thumbnail if available
+            $imagePath = null;
+            if (!empty($_FILES['article_image']['name'])) {
+                $uploadResult = handleImageUpload('article_image');
+                if (!$uploadResult['success']) {
+                    throw new Exception($uploadResult['message']);
+                }
+                $imagePath = $uploadResult['path'];
+            }
+            
+            $stmt = $conn->prepare("INSERT INTO service_articles 
+                                  (feature_id, title, content, image_path) 
+                                  VALUES (:feature_id, :title, :content, :image_path)");
+            
+            $stmt->bindParam(':feature_id', $featureId);
+            $stmt->bindParam(':title', $title);
+            $stmt->bindParam(':content', $content);
+            $stmt->bindParam(':image_path', $imagePath);
+            $stmt->execute();
+            
+            $conn->commit();
+            $_SESSION['message'] = "Artikel berhasil ditambahkan!";
+            $_SESSION['message_type'] = "success";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=articles");
+            exit;
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $_SESSION['message'] = "Error menambahkan artikel: " . $e->getMessage();
+            $_SESSION['message_type'] = "error";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=articles");
+            exit;
+        }
+    }
+    
+    // Edit Article
+    elseif (isset($_POST['edit_article'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $articleId = (int)$_POST['article_id'];
+            $featureId = !empty($_POST['feature_id']) ? (int)$_POST['feature_id'] : null;
+            $title = trim($_POST['article_title']);
+            $content = $_POST['article_content']; // HTML content from Quill
+            $oldImagePath = $_POST['old_article_image'];
+            
+            if (empty($title)) {
+                throw new Exception("Judul artikel harus diisi");
+            }
+            
+            if (empty($content)) {
+                throw new Exception("Konten artikel harus diisi");
+            }
+            
+            // Handle image upload for article thumbnail if available
+            $imagePath = $oldImagePath;
+            if (!empty($_FILES['article_image']['name'])) {
+                $uploadResult = handleImageUpload('article_image', $oldImagePath);
+                if (!$uploadResult['success']) {
+                    throw new Exception($uploadResult['message']);
+                }
+                $imagePath = $uploadResult['path'];
+            }
+            
+            $stmt = $conn->prepare("UPDATE service_articles 
+                                  SET feature_id = :feature_id, 
+                                      title = :title, 
+                                      content = :content, 
+                                      image_path = :image_path,
+                                      updated_at = CURRENT_TIMESTAMP
+                                  WHERE id = :id");
+            
+            $stmt->bindParam(':feature_id', $featureId);
+            $stmt->bindParam(':title', $title);
+            $stmt->bindParam(':content', $content);
+            $stmt->bindParam(':image_path', $imagePath);
+            $stmt->bindParam(':id', $articleId);
+            $stmt->execute();
+            
+            $conn->commit();
+            $_SESSION['message'] = "Artikel berhasil diperbarui!";
+            $_SESSION['message_type'] = "success";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=articles");
+            exit;
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $_SESSION['message'] = "Error memperbarui artikel: " . $e->getMessage();
+            $_SESSION['message_type'] = "error";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=articles");
+            exit;
+        }
+    }
+    
+    // Delete Article
+    elseif (isset($_POST['delete_article'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $articleId = (int)$_POST['article_id'];
+            
+            $stmt = $conn->prepare("DELETE FROM service_articles WHERE id = :id");
+            $stmt->bindParam(':id', $articleId);
+            $stmt->execute();
+            
+            $conn->commit();
+            $_SESSION['message'] = "Artikel berhasil dihapus!";
+            $_SESSION['message_type'] = "success";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=articles");
+            exit;
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $_SESSION['message'] = "Error menghapus artikel: " . $e->getMessage();
+            $_SESSION['message_type'] = "error";
+            
+            // Redirect to prevent form resubmission on refresh
+            header("Location: ?tab=articles");
             exit;
         }
     }
@@ -394,17 +554,78 @@ try {
     $stmt = $conn->query("SELECT f.*, c.categories_name 
                         FROM service_features f
                         LEFT JOIN service_categories c ON f.feature_category_id = c.id
-                        ORDER BY c.categories_name ASC, f.feature_name ASC");
+                        ORDER BY f.id ASC");
     $features = $stmt->fetchAll();
 } catch(PDOException $e) {
     $message = "Error mengambil data layanan: " . $e->getMessage();
     $messageType = "error";
+}
+
+// Fetch all articles with related feature names
+$articles = [];
+try {
+    $stmt = $conn->query("SELECT a.*, f.feature_name 
+                       FROM service_articles a
+                       LEFT JOIN service_features f ON a.feature_id = f.id
+                       ORDER BY a.created_at DESC");
+    $articles = $stmt->fetchAll();
+} catch(PDOException $e) {
+    $message = "Error mengambil data artikel: " . $e->getMessage();
+    $messageType = "error";
+}
+
+// Fetch specific article for editing if id is provided
+$editArticle = null;
+if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
+    $editId = (int)$_GET['edit_article'];
+    
+    try {
+        $stmt = $conn->prepare("SELECT * FROM service_articles WHERE id = :id");
+        $stmt->bindParam(':id', $editId);
+        $stmt->execute();
+        
+        if ($stmt->rowCount() > 0) {
+            $editArticle = $stmt->fetch();
+            $activeTab = 'articles';
+        }
+    } catch(PDOException $e) {
+        $message = "Error mengambil data artikel: " . $e->getMessage();
+        $messageType = "error";
+    }
 }
 ?>
 
 <!doctype html>
 <html lang="id">
 <?php include('../../components/head.php'); ?>
+<head>
+    <!-- Include Quill stylesheet -->
+    <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+    
+    <style>
+        /* Custom styles for Quill editor */
+        .ql-container {
+            min-height: 200px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .quill-content img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .article-preview img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        /* Modal fixes for Quill */
+        .modal-with-quill {
+            max-width: 800px !important;
+        }
+    </style>
+</head>
 <body class="bg-gray-50">
     <div class="min-h-screen flex flex-col lg:flex-row">
         <?php include('../../components/sidebar.php'); ?>
@@ -434,6 +655,9 @@ try {
                         </a>
                         <a href="?tab=features" class="mr-8 py-4 px-1 border-b-2 font-medium text-sm <?php echo $activeTab == 'features' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
                             Detail Layanan
+                        </a>
+                        <a href="?tab=articles" class="mr-8 py-4 px-1 border-b-2 font-medium text-sm <?php echo $activeTab == 'articles' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
+                            Artikel Layanan
                         </a>
                     </nav>
                 </div>
@@ -679,19 +903,6 @@ try {
                                            class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
                                     <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Gambar akan disimpan di <strong>assets/images/images/services/</strong></p>
                                 </div>
-                                
-                                <!-- <div class="mt-3">
-                                    <label for="feature_image_path" class="block text-sm font-medium text-gray-700 mb-1">Atau Gunakan Gambar yang Sudah Ada</label>
-                                    <div class="flex">
-                                        <span class="inline-flex items-center px-3 text-gray-500 bg-gray-100 border border-r-0 border-gray-300 rounded-l-md">
-                                            assets/images/images/services/
-                                        </span>
-                                        <input type="text" id="feature_image_path" name="feature_image_path"
-                                               placeholder="nama-file.jpg" 
-                                               class="flex-1 px-3 py-2 border border-gray-300 rounded-r-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    </div>
-                                    <p class="mt-1 text-xs text-gray-500">Cukup masukkan nama file jika gambar sudah ada di direktori assets/images/images/services/</p>
-                                </div> -->
                             </div>
                             
                             <div class="flex justify-end space-x-3 mt-6">
@@ -824,6 +1035,249 @@ try {
                 </div>
                 <?php endif; ?>
                 
+                <!-- Articles Tab -->
+                <?php if ($activeTab == 'articles'): ?>
+                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-800">Artikel Layanan</h2>
+                        <p class="text-sm text-gray-500 mt-1">Kelola artikel untuk setiap layanan yang tersedia</p>
+                    </div>
+                    <div class="p-6">
+                        <!-- Add New Article Button -->
+                        <div class="mb-6">
+                            <button type="button" onclick="openAddArticleModal()" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <i class="bx bx-plus mr-1"></i> Tambah Artikel Baru
+                            </button>
+                        </div>
+                        
+                        <!-- Articles List -->
+                        <div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Terkait Layanan</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Judul Artikel</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gambar</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
+                                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <?php if(empty($articles)): ?>
+                                        <tr>
+                                            <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">Tidak ada artikel yang ditemukan</td>
+                                        </tr>
+                                        <?php else: ?>
+                                            <?php foreach($articles as $article): ?>
+                                            <tr>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo $article['id']; ?></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    <?php echo $article['feature_id'] ? htmlspecialchars($article['feature_name']) : '<span class="text-gray-400">Tidak terkait</span>'; ?>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($article['title']); ?></td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                    <?php if(!empty($article['image_path'])): ?>
+                                                    <img src="../../../<?php echo htmlspecialchars($article['image_path']); ?>" alt="<?php echo htmlspecialchars($article['title']); ?>" class="h-10 w-auto object-contain">
+                                                    <?php else: ?>
+                                                    <span class="text-gray-400">No image</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <?php echo date('d M Y', strtotime($article['created_at'])); ?>
+                                                </td>
+                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <a href="?tab=articles&edit_article=<?php echo $article['id']; ?>" class="text-blue-600 hover:text-blue-900 mr-3">
+                                                        <i class="bx bx-edit"></i> Edit
+                                                    </a>
+                                                    <button type="button" 
+                                                            onclick="openDeleteArticleModal(<?php echo $article['id']; ?>, '<?php echo htmlspecialchars($article['title']); ?>')" 
+                                                            class="text-red-600 hover:text-red-900">
+                                                        <i class="bx bx-trash"></i> Hapus
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Add/Edit Article Form (appears when editing) -->
+                <?php if(isset($editArticle) && $editArticle): ?>
+                <div class="mt-8 bg-white rounded-lg shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-800">Edit Artikel</h2>
+                        <p class="text-sm text-gray-500 mt-1">Perbarui konten artikel</p>
+                    </div>
+                    <div class="p-6">
+                        <form method="POST" action="?tab=articles" enctype="multipart/form-data">
+                            <input type="hidden" name="article_id" value="<?php echo $editArticle['id']; ?>">
+                            <input type="hidden" name="old_article_image" value="<?php echo htmlspecialchars($editArticle['image_path']); ?>">
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                <div>
+                                    <label for="article_title" class="block text-sm font-medium text-gray-700 mb-1">Judul Artikel</label>
+                                    <input type="text" id="article_title" name="article_title" required
+                                           value="<?php echo htmlspecialchars($editArticle['title']); ?>"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                
+                                <div>
+                                    <label for="feature_id" class="block text-sm font-medium text-gray-700 mb-1">Terkait Layanan</label>
+                                    <select id="feature_id" name="feature_id" 
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">Tidak terkait dengan layanan spesifik</option>
+                                        <?php foreach($features as $feature): ?>
+                                        <option value="<?php echo $feature['id']; ?>" <?php echo ($editArticle['feature_id'] == $feature['id']) ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($feature['feature_name']); ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Gambar Artikel</label>
+                                
+                                <?php if(!empty($editArticle['image_path'])): ?>
+                                <div class="mb-3 p-2 border rounded-md bg-gray-50 flex items-center">
+                                    <div class="w-16 h-16 flex items-center justify-center overflow-hidden bg-gray-100 rounded">
+                                        <img src="../../../<?php echo htmlspecialchars($editArticle['image_path']); ?>" alt="Current image" class="max-h-full max-w-full">
+                                    </div>
+                                    <div class="ml-3">
+                                        <p class="text-sm font-medium">Gambar Saat Ini</p>
+                                        <p class="text-xs text-gray-500 truncate"><?php echo htmlspecialchars($editArticle['image_path']); ?></p>
+                                    </div>
+                                </div>
+                                <?php endif; ?>
+                                
+                                <div class="flex flex-col space-y-2">
+                                    <input type="file" id="article_image" name="article_image" 
+                                           class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                    <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP. Biarkan kosong jika tidak ingin mengubah gambar.</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-6">
+                                <label for="article_content" class="block text-sm font-medium text-gray-700 mb-1">Konten Artikel</label>
+                                <!-- Quill editor container -->
+                                <div id="editor-container" class="border border-gray-300 rounded-md"><?php echo $editArticle['content']; ?></div>
+                                <!-- Hidden input to store HTML content -->
+                                <input type="hidden" name="article_content" id="article_content_hidden">
+                            </div>
+                            
+                            <div class="flex justify-end space-x-3">
+                                <a href="?tab=articles" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Batal
+                                </a>
+                                <button type="submit" name="edit_article" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    Simpan Perubahan
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <!-- Add Article Modal -->
+                <div id="addArticleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden overflow-auto py-8">
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-4xl mx-auto my-auto modal-with-quill">
+                        <!-- Modal Header -->
+                        <div class="sticky top-0 bg-white p-6 border-b border-gray-200">
+                            <div class="flex justify-between items-center">
+                                <h3 class="text-lg font-medium text-gray-900">Tambah Artikel Baru</h3>
+                                <button type="button" onclick="closeAddArticleModal()" class="text-gray-400 hover:text-gray-500">
+                                    <i class="bx bx-x text-2xl"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Modal Body -->
+                        <div class="p-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
+                            <form method="POST" action="?tab=articles" enctype="multipart/form-data" id="addArticleForm">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                    <div>
+                                        <label for="add_article_title" class="block text-sm font-medium text-gray-700 mb-1">Judul Artikel</label>
+                                        <input type="text" id="add_article_title" name="article_title" required
+                                               placeholder="Masukkan judul artikel" 
+                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    </div>
+                                    
+                                    <div>
+                                        <label for="add_feature_id" class="block text-sm font-medium text-gray-700 mb-1">Terkait Layanan</label>
+                                        <select id="add_feature_id" name="feature_id" 
+                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                            <option value="">Tidak terkait dengan layanan spesifik</option>
+                                            <?php foreach($features as $feature): ?>
+                                            <option value="<?php echo $feature['id']; ?>"><?php echo htmlspecialchars($feature['feature_name']); ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-6">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Gambar Artikel (Opsional)</label>
+                                    <div class="flex flex-col space-y-2">
+                                        <input type="file" id="add_article_image" name="article_image" 
+                                               class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                                        <p class="text-xs text-gray-500">Format: JPG, PNG, GIF, SVG, WEBP.</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-6">
+                                    <label for="add_article_content" class="block text-sm font-medium text-gray-700 mb-1">Konten Artikel</label>
+                                    <!-- Quill editor container -->
+                                    <div id="add-editor-container" class="border border-gray-300 rounded-md"></div>
+                                    <!-- Hidden input to store HTML content -->
+                                    <input type="hidden" name="article_content" id="add_article_content_hidden">
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <!-- Modal Footer -->
+                        <div class="sticky bottom-0 bg-white p-6 border-t border-gray-200">
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" onclick="closeAddArticleModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Batal
+                                </button>
+                                <button type="button" onclick="submitAddArticleForm()" class="px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    Tambah Artikel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Delete Article Modal -->
+                <div id="deleteArticleModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+                    <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-medium text-gray-900">Hapus Artikel</h3>
+                            <button type="button" onclick="closeDeleteArticleModal()" class="text-gray-400 hover:text-gray-500">
+                                <i class="bx bx-x text-2xl"></i>
+                            </button>
+                        </div>
+                        <p class="text-gray-700 mb-6">Apakah Anda yakin ingin menghapus artikel <span id="delete_article_title" class="font-semibold"></span>?</p>
+                        <form method="POST" action="?tab=articles">
+                            <input type="hidden" id="delete_article_id" name="article_id">
+                            <div class="flex justify-end space-x-3">
+                                <button type="button" onclick="closeDeleteArticleModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
+                                    Batal
+                                </button>
+                                <button type="submit" name="delete_article" class="px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500">
+                                    Hapus Artikel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
                 <!-- Footer -->
                 <div class="text-center text-gray-500 text-sm mt-8 pb-6">
                     <p>&copy; 2023 Akademi Merdeka Admin Dashboard. All rights reserved.</p>
@@ -832,9 +1286,47 @@ try {
         </div>
     </div>
     
+    <!-- Include Quill JavaScript -->
+    <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+    
     <script>
         // Konstanta untuk path gambar
         const servicesImagePath = 'assets/images/uploads/services/';
+        
+        // Initialize Quill editor for edit mode
+        let quillEditor = null;
+        const editorContainer = document.getElementById('editor-container');
+        if (editorContainer) {
+            quillEditor = new Quill('#editor-container', {
+                modules: {
+                    toolbar: [
+                        [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                        ['bold', 'italic', 'underline', 'strike'],
+                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                        [{ 'script': 'sub'}, { 'script': 'super' }],
+                        [{ 'indent': '-1'}, { 'indent': '+1' }],
+                        [{ 'color': [] }, { 'background': [] }],
+                        ['blockquote', 'code-block'],
+                        ['link', 'image'],
+                        ['clean']
+                    ]
+                },
+                placeholder: 'Tulis konten artikel di sini...',
+                theme: 'snow'
+            });
+            
+            // Handle form submission to update hidden input with HTML content
+            const form = editorContainer.closest('form');
+            if (form) {
+                form.onsubmit = function() {
+                    document.getElementById('article_content_hidden').value = quillEditor.root.innerHTML;
+                    return true;
+                };
+            }
+        }
+        
+        // Initialize Quill editor for add mode (will be created when modal opens)
+        let addQuillEditor = null;
         
         // Category Modals
         function openEditCategoryModal(id, name) {
@@ -883,7 +1375,7 @@ try {
             if (imagePath && imagePath.startsWith(servicesImagePath)) {
                 document.getElementById('edit_feature_image_path').value = imagePath.substring(servicesImagePath.length);
             } else {
-                document.getElementById('edit_feature_image_path').value = imagePath;
+                document.getElementById('edit_feature_image_path').value = '';
             }
             
             // Set current image preview
@@ -913,6 +1405,65 @@ try {
         
         function closeDeleteFeatureModal() {
             document.getElementById('deleteFeatureModal').classList.add('hidden');
+        }
+        
+        // Article Modals
+        function openAddArticleModal() {
+            // Reset form
+            const form = document.getElementById('addArticleForm');
+            if (form) {
+                form.reset();
+            }
+            
+            // Initialize Quill editor if not already initialized
+            if (!addQuillEditor) {
+                addQuillEditor = new Quill('#add-editor-container', {
+                    modules: {
+                        toolbar: [
+                            [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+                            ['bold', 'italic', 'underline', 'strike'],
+                            [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                            [{ 'script': 'sub'}, { 'script': 'super' }],
+                            [{ 'indent': '-1'}, { 'indent': '+1' }],
+                            [{ 'color': [] }, { 'background': [] }],
+                            ['blockquote', 'code-block'],
+                            ['link', 'image'],
+                            ['clean']
+                        ]
+                    },
+                    placeholder: 'Tulis konten artikel di sini...',
+                    theme: 'snow'
+                });
+            } else {
+                // Clear editor content
+                addQuillEditor.root.innerHTML = '';
+            }
+            
+            document.getElementById('addArticleModal').classList.remove('hidden');
+        }
+        
+        function closeAddArticleModal() {
+            document.getElementById('addArticleModal').classList.add('hidden');
+        }
+        
+        function submitAddArticleForm() {
+            // Update hidden input with Quill content
+            if (addQuillEditor) {
+                document.getElementById('add_article_content_hidden').value = addQuillEditor.root.innerHTML;
+            }
+            
+            // Submit the form
+            document.getElementById('addArticleForm').submit();
+        }
+        
+        function openDeleteArticleModal(id, title) {
+            document.getElementById('delete_article_id').value = id;
+            document.getElementById('delete_article_title').textContent = title;
+            document.getElementById('deleteArticleModal').classList.remove('hidden');
+        }
+        
+        function closeDeleteArticleModal() {
+            document.getElementById('deleteArticleModal').classList.add('hidden');
         }
         
         // Form handling untuk path otomatis
@@ -949,7 +1500,9 @@ try {
                 { element: document.getElementById('deleteCategoryModal'), close: closeDeleteCategoryModal },
                 { element: document.getElementById('addFeatureModal'), close: closeAddFeatureModal },
                 { element: document.getElementById('editFeatureModal'), close: closeEditFeatureModal },
-                { element: document.getElementById('deleteFeatureModal'), close: closeDeleteFeatureModal }
+                { element: document.getElementById('deleteFeatureModal'), close: closeDeleteFeatureModal },
+                { element: document.getElementById('addArticleModal'), close: closeAddArticleModal },
+                { element: document.getElementById('deleteArticleModal'), close: closeDeleteArticleModal }
             ];
             
             modals.forEach(modal => {
@@ -967,11 +1520,13 @@ try {
                     { element: document.getElementById('deleteCategoryModal'), close: closeDeleteCategoryModal },
                     { element: document.getElementById('addFeatureModal'), close: closeAddFeatureModal },
                     { element: document.getElementById('editFeatureModal'), close: closeEditFeatureModal },
-                    { element: document.getElementById('deleteFeatureModal'), close: closeDeleteFeatureModal }
+                    { element: document.getElementById('deleteFeatureModal'), close: closeDeleteFeatureModal },
+                    { element: document.getElementById('addArticleModal'), close: closeAddArticleModal },
+                    { element: document.getElementById('deleteArticleModal'), close: closeDeleteArticleModal }
                 ];
                 
                 modals.forEach(modal => {
-                    if (!modal.element.classList.contains('hidden')) {
+                    if (modal.element && !modal.element.classList.contains('hidden')) {
                         modal.close();
                     }
                 });

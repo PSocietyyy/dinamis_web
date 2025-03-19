@@ -39,3 +39,14 @@ VALUES
 
 -- Konversi (kategori_id = 5)
 ("KTI", 5, "services/konversi-kti", "assets/images/uploads/services/services-kti.jpg");
+
+CREATE TABLE service_articles (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  slug INT,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,  -- menyimpan HTML hasil konversi Quill
+  image_path VARCHAR(255) DEFAULT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+

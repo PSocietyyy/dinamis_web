@@ -2,7 +2,7 @@
 $host = 'localhost';
 $dbname = 'akademi_merdeka';
 $username = 'root';
-$password = 'ususgysjjsu7';
+$password = '';
 
 try {
     $conn = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
