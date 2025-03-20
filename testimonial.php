@@ -1,7 +1,39 @@
+<?php
+// Include database connection
+require_once('./config.php');
+
+// Fetch testimonials data
+$testimonials = [];
+try {
+  $stmt = $conn->query("SELECT * FROM testimonials WHERE is_active = 1 ORDER BY display_order ASC");
+  $testimonials = $stmt->fetchAll();
+} catch(PDOException $e) {
+  // Handle error silently
+}
+
+// Fetch page settings
+$pageSettings = [];
+try {
+  $stmt = $conn->query("SELECT * FROM testimonial_page_settings WHERE id = 1 LIMIT 1");
+  $pageSettings = $stmt->fetch();
+} catch(PDOException $e) {
+  // Handle error silently
+}
+
+// Default values if no settings found
+$pageTitle = $pageSettings['page_title'] ?? 'Testimoni';
+$metaDescription = $pageSettings['meta_description'] ?? 'Testimoni dari pelanggan Akademi Merdeka';
+$breadcrumbParent = $pageSettings['breadcrumb_parent'] ?? 'Tentang';
+$breadcrumbCurrent = $pageSettings['breadcrumb_current'] ?? 'Testimoni';
+$sectionTitle = $pageSettings['section_title'] ?? 'Testimoni Customer';
+$sectionSubtitle = $pageSettings['section_subtitle'] ?? 'Apa Kata Mereka?';
+?>
 <!doctype html>
 <html lang="id">
   <?php
-  include('components/head.php')
+  include('components/head.php');
+  // Add custom meta description for this page
+  echo '<meta name="description" content="' . htmlspecialchars($metaDescription) . '">';
   ?>
   <body>
     <!-- Google Tag Manager (noscript) -->
@@ -34,11 +66,11 @@
     <div class="inner-banner">
       <div class="container">
         <div class="inner-title text-center">
-          <h3>Testimoni</h3>
+          <h3><?php echo htmlspecialchars($pageTitle); ?></h3>
           <ul>
-            <li><a href="/">Tentang</a></li>
+            <li><a href="/"><?php echo htmlspecialchars($breadcrumbParent); ?></a></li>
             <li><i class='bx bx-chevrons-right'></i></li>
-            <li>Testimoni</li>
+            <li><?php echo htmlspecialchars($breadcrumbCurrent); ?></li>
           </ul>
         </div>
       </div>
@@ -46,55 +78,31 @@
     </div>
     <section class="clients-area clients-area-two pt-100 pb-70">
       <div class="container">
-        <div class="section-title text-center"><span class="sp-color2">Testimoni Customer</span>
-          <h2>Apa Kata Mereka?</h2>
+        <div class="section-title text-center">
+          <span class="sp-color2"><?php echo htmlspecialchars($sectionTitle); ?></span>
+          <h2><?php echo htmlspecialchars($sectionSubtitle); ?></h2>
         </div>
         <div class="clients-slider owl-carousel owl-theme pt-45">
-          <div class="clients-content">
-            <div class="content"><img src="assets/images/clients-img/testi-4.jpg" alt="Images" loading="lazy"><i class='bx bxs-quote-alt-left'></i>
-              <h3>Bayu Saputra</h3><span>Mahasiswa</span>
+          <?php if (empty($testimonials)): ?>
+            <div class="clients-content">
+              <p>Belum ada testimoni yang tersedia.</p>
             </div>
-            <p> “Adanya tim Akademi Merdeka membantu saya dalam penerbitan jurnal dengan metode yang efektif, membuat saya cepat memahami.”<br><br></p>
-          </div>
-          <div class="clients-content">
-            <div class="content"><img src="assets/images/clients-img/testi-3.jpg" alt="Images" loading="lazy"><i class='bx bxs-quote-alt-left'></i>
-              <h3>Aryo Supratman</h3><span>Dosen</span>
-            </div>
-            <p> “Akademi Merdeka tidak hanya sekedar membantu dalam kenaikan Jabatan Fungsional, namun sebagai penasehat dan pendengar yang baik. Tim sangat responsif dan tanggap jika ada persoalan.” </p>
-          </div>
-          <div class="clients-content">
-            <div class="content"><img src="assets/images/clients-img/testi-6.jpg" alt="Images" loading="lazy"><i class='bx bxs-quote-alt-left'></i>
-              <h3>Syadid</h3><span>Mahasiswa</span>
-            </div>
-            <p> “Tim Akademi Merdeka membantu pembuatan media ajar mulai dari penyusunan indikator dan memberikan inovasi yang sangat baik.”<br><br></p>
-          </div>
-          <div class="clients-content">
-            <div class="content"><img src="assets/images/clients-img/testi-1.jpg" alt="Images" loading="lazy"><i class='bx bxs-quote-alt-left'></i>
-              <h3>Alya Afifah</h3><span>Mahasiswa</span>
-            </div>
-            <p> “Desain yang diberikan oleh tim Akademi Merdeka sangat kekinian, sehingga buku yang diterbitkan semakin menarik perhatian pembaca.” <br><br></p>
-          </div>
-          <div class="clients-content">
-            <div class="content"><img src="assets/images/clients-img/testi-2.jpg" alt="Images" loading="lazy"><i class='bx bxs-quote-alt-left'></i>
-              <h3>Arini Sulistiawati</h3><span>Mahasiswa</span>
-            </div>
-            <p> “Pelayanan Pembuatan HKI sangat cepat. Tim hanya memerlukan 20 menit saja untuk mengirimkan sertifikat HKI kepada saya.”<br><br></p>
-          </div>
+          <?php else: ?>
+            <?php foreach ($testimonials as $testimonial): ?>
+              <div class="clients-content">
+                <div class="content">
+                  <img src="<?php echo htmlspecialchars($testimonial['client_image']); ?>" alt="<?php echo htmlspecialchars($testimonial['client_name']); ?>" loading="lazy">
+                  <i class='bx bxs-quote-alt-left'></i>
+                  <h3><?php echo htmlspecialchars($testimonial['client_name']); ?></h3>
+                  <span><?php echo htmlspecialchars($testimonial['client_position']); ?></span>
+                </div>
+                <p><?php echo htmlspecialchars($testimonial['testimonial_text']); ?></p>
+              </div>
+            <?php endforeach; ?>
+          <?php endif; ?>
         </div>
       </div>
     </section>
-    <!--<div class="brand-area-two ptb-100">-->
-    <!--  <div class="container">-->
-    <!--    <div class="brand-slider owl-carousel owl-theme">-->
-    <!--      <div class="brand-item"><img src="assets/images/brand-logo/sp-1.png" alt="Images" loading="lazy"></div>-->
-    <!--      <div class="brand-item"><img src="assets/images/brand-logo/sp-2.png" alt="Images" loading="lazy"></div>-->
-    <!--      <div class="brand-item"><img src="assets/images/brand-logo/sp-3.png" alt="Images" loading="lazy"></div>-->
-    <!--      <div class="brand-item"><img src="assets/images/brand-logo/sp-4.png" alt="Images" loading="lazy"></div>-->
-    <!--      <div class="brand-item"><img src="assets/images/brand-logo/sp-5.png" alt="Images" loading="lazy"></div>-->
-    <!--      <div class="brand-item"><img src="assets/images/brand-logo/sp-6.png" alt="Images" loading="lazy"></div>-->
-    <!--    </div>-->
-    <!--  </div>-->
-    <!--</div>-->
     <?php
     include('components/footer.php')
     ?>
