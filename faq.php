@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="id">
   <?php
-  include('components/head.php');
+  include('components/head.php')
   ?>
   <body>
     <!-- Google Tag Manager (noscript) -->
@@ -102,7 +102,7 @@
     </div>
     <?php
     include('components/footer.php')
-    ?>
+    ?>  
     <script src="assets/js/jquery.min.js"></script>
     <script src="assets/js/bootstrap.bundle.min.js"></script>
     <script src="assets/js/owl.carousel.min.js"></script>

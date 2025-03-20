@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS team_members (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     position VARCHAR(100) NOT NULL,
-    image_path VARCHAR(255) NOT NULL,
+    image_path VARCHAR(255) NOT NULL DEFAULT 'assets/images/team/default-user.png',
     display_order INT DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
