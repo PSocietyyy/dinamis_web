@@ -11,62 +11,84 @@ if(!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
 // Include database connection
 require_once('../../../config.php');
 
+// Configuration
+$uploadDirectory = '../../../assets/images/uploads/team/';
+$bannerUploadDirectory = '../../../assets/images/uploads/banners/';
+
+// Ensure directories exist with proper permissions
+$directories = [$uploadDirectory, $bannerUploadDirectory];
+foreach ($directories as $dir) {
+    if (!file_exists($dir)) {
+        // Create directory if it doesn't exist
+        if (!@mkdir($dir, 0777, true)) {
+            $error = error_get_last();
+        }
+    }
+}
+
 // Initialize variables
 $message = '';
 $messageType = '';
 $currentUsername = $_SESSION['username'];
+$activeTab = isset($_GET['tab']) ? $_GET['tab'] : 'members';
+$editMemberId = isset($_GET['edit']) ? (int)$_GET['edit'] : 0;
 
-// Try creating the upload directory structure at initialization
-$uploadDirectory = '../../../assets/uploads/team/';
-if (!file_exists($uploadDirectory)) {
-    // Create directory if it doesn't exist
-    mkdir($uploadDirectory, 0755, true);
-}
-
-function handleImageUpload($fileInput, $oldPath = null) {
-    global $uploadDirectory;
-    
+// Handle image uploads
+function handleImageUpload($fileInput, $uploadDir, $oldPath = null) {
+    // Check if a file was uploaded
     if (isset($_FILES[$fileInput]) && $_FILES[$fileInput]['error'] === UPLOAD_ERR_OK) {
         $tempFile = $_FILES[$fileInput]['tmp_name'];
         $fileInfo = pathinfo($_FILES[$fileInput]['name']);
         $extension = strtolower($fileInfo['extension']);
         
-        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'];
+        // Validate file type
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
         if (!in_array($extension, $allowedExtensions)) {
             return [
                 'success' => false,
-                'message' => "Invalid file type. Only JPG, PNG, GIF, SVG, and WEBP files are allowed."
+                'message' => "Invalid file type. Only JPG, PNG, GIF, and WEBP files are allowed."
             ];
         }
         
         // Make sure upload directory exists and is writable
-        if (!file_exists($uploadDirectory)) {
-            if (!@mkdir($uploadDirectory, 0755, true)) {
+        if (!file_exists($uploadDir)) {
+            if (!@mkdir($uploadDir, 0777, true)) {
                 return [
                     'success' => false,
-                    'message' => "Failed to create upload directory. Please create this directory manually: assets/uploads/team"
+                    'message' => "Failed to create upload directory: " . $uploadDir
                 ];
             }
         }
         
-        if (!is_writable($uploadDirectory)) {
-            @chmod($uploadDirectory, 0755);
-            if (!is_writable($uploadDirectory)) {
+        if (!is_writable($uploadDir)) {
+            @chmod($uploadDir, 0777);
+            if (!is_writable($uploadDir)) {
                 return [
                     'success' => false,
-                    'message' => "Upload directory exists but is not writable. Please check permissions for: " . $uploadDirectory
+                    'message' => "Upload directory exists but is not writable: " . $uploadDir
                 ];
             }
         }
         
         // Generate a unique filename to prevent overwriting
-        $newFilename = 'team_' . uniqid() . '.' . $extension;
-        $targetPath = $uploadDirectory . $newFilename;
+        $prefix = strpos($uploadDir, 'team') !== false ? 'team_' : 'banner_';
+        $newFilename = $prefix . uniqid() . '.' . $extension;
+        $targetPath = $uploadDir . $newFilename;
         
         // Move the uploaded file
         if (@move_uploaded_file($tempFile, $targetPath)) {
+            // Delete old file if it exists and is in the uploads directory
+            if ($oldPath && (strpos($oldPath, 'uploads/team') !== false || strpos($oldPath, 'uploads/banners') !== false) && file_exists('../../../' . $oldPath)) {
+                @unlink('../../../' . $oldPath);
+            }
+            
             // Get the relative path for the database (from website root)
-            $relativePath = 'assets/uploads/team/' . $newFilename;
+            if (strpos($uploadDir, 'team') !== false) {
+                $relativePath = 'assets/images/uploads/team/' . $newFilename;
+            } else {
+                $relativePath = 'assets/images/uploads/banners/' . $newFilename;
+            }
+            
             return [
                 'success' => true,
                 'path' => $relativePath
@@ -92,217 +114,294 @@ function handleImageUpload($fileInput, $oldPath = null) {
 // Process form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
-    // Update banner
-    if (isset($_POST['update_banner'])) {
+    // Update page settings - General Tab
+    if (isset($_POST['update_general_settings'])) {
         try {
-            $title = trim($_POST['banner_title']);
-            $breadcrumbText = trim($_POST['banner_breadcrumb']);
-            $imagePath = trim($_POST['banner_image']);
+            $conn->beginTransaction();
+            
+            $title = $_POST['title'] ?? '';
+            $subtitle = $_POST['subtitle'] ?? '';
+            $description = $_POST['description'] ?? '';
+            $seoTitle = $_POST['seo_title'] ?? '';
+            $seoDescription = $_POST['seo_description'] ?? '';
+            $seoKeywords = $_POST['seo_keywords'] ?? '';
+            
+            $stmt = $conn->prepare("INSERT INTO team_page_settings 
+                                 (id, title, subtitle, description, seo_title, seo_description, seo_keywords) 
+                                 VALUES (1, :title, :subtitle, :description, :seo_title, :seo_description, :seo_keywords)
+                                 ON DUPLICATE KEY UPDATE 
+                                 title = VALUES(title), 
+                                 subtitle = VALUES(subtitle), 
+                                 description = VALUES(description),
+                                 seo_title = VALUES(seo_title),
+                                 seo_description = VALUES(seo_description),
+                                 seo_keywords = VALUES(seo_keywords)");
+            
+            $stmt->bindParam(':title', $title);
+            $stmt->bindParam(':subtitle', $subtitle);
+            $stmt->bindParam(':description', $description);
+            $stmt->bindParam(':seo_title', $seoTitle);
+            $stmt->bindParam(':seo_description', $seoDescription);
+            $stmt->bindParam(':seo_keywords', $seoKeywords);
+            $stmt->execute();
+            
+            $conn->commit();
+            $message = "General page settings updated successfully!";
+            $messageType = "success";
+            $activeTab = 'general';
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $message = "Error updating page settings: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+    
+    // Update page banner settings
+    if (isset($_POST['update_banner_settings'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $innerTitle = $_POST['inner_title'] ?? '';
+            $breadcrumbParent = $_POST['breadcrumb_parent'] ?? '';
+            $breadcrumbParentLink = $_POST['breadcrumb_parent_link'] ?? '';
+            $breadcrumbCurrent = $_POST['breadcrumb_current'] ?? '';
+            $currentBannerImage = $_POST['current_banner_image'] ?? '';
             
             // Handle banner image upload
-            if (!empty($_FILES['banner_image_file']['name'])) {
-                $uploadResult = handleImageUpload('banner_image_file', $imagePath);
+            $uploadResult = handleImageUpload('banner_image', $bannerUploadDirectory, $currentBannerImage);
+            if (!$uploadResult['success']) {
+                throw new Exception($uploadResult['message']);
+            }
+            $bannerImage = $uploadResult['path'];
+            
+            $stmt = $conn->prepare("INSERT INTO team_page_settings 
+                                 (id, inner_title, breadcrumb_parent, breadcrumb_parent_link, breadcrumb_current, banner_image) 
+                                 VALUES (1, :inner_title, :breadcrumb_parent, :breadcrumb_parent_link, :breadcrumb_current, :banner_image)
+                                 ON DUPLICATE KEY UPDATE 
+                                 inner_title = VALUES(inner_title), 
+                                 breadcrumb_parent = VALUES(breadcrumb_parent), 
+                                 breadcrumb_parent_link = VALUES(breadcrumb_parent_link),
+                                 breadcrumb_current = VALUES(breadcrumb_current),
+                                 banner_image = VALUES(banner_image)");
+            
+            $stmt->bindParam(':inner_title', $innerTitle);
+            $stmt->bindParam(':breadcrumb_parent', $breadcrumbParent);
+            $stmt->bindParam(':breadcrumb_parent_link', $breadcrumbParentLink);
+            $stmt->bindParam(':breadcrumb_current', $breadcrumbCurrent);
+            $stmt->bindParam(':banner_image', $bannerImage);
+            $stmt->execute();
+            
+            $conn->commit();
+            $message = "Banner settings updated successfully!";
+            $messageType = "success";
+            $activeTab = 'banner';
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $message = "Error updating banner settings: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+    
+    // Add new team member
+    elseif (isset($_POST['add_member'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $name = $_POST['name'] ?? '';
+            $position = $_POST['position'] ?? '';
+            $order = (int)$_POST['display_order'] ?? 0;
+            $isActive = isset($_POST['is_active']) ? 1 : 0;
+            $imagePath = '';
+            
+            // Handle image upload
+            if (!empty($_FILES['image_file']['name'])) {
+                $uploadResult = handleImageUpload('image_file', $uploadDirectory);
                 if (!$uploadResult['success']) {
                     throw new Exception($uploadResult['message']);
                 }
                 $imagePath = $uploadResult['path'];
             }
             
-            // Check if banner exists
-            $stmt = $conn->prepare("SELECT COUNT(*) FROM team_banners WHERE page_slug = :slug");
-            $pageSlug = 'team';
-            $stmt->bindParam(':slug', $pageSlug);
+            $stmt = $conn->prepare("INSERT INTO team_members (name, position, image_path, display_order, is_active) 
+                                 VALUES (:name, :position, :image_path, :display_order, :is_active)");
+            
+            $stmt->bindParam(':name', $name);
+            $stmt->bindParam(':position', $position);
+            $stmt->bindParam(':image_path', $imagePath);
+            $stmt->bindParam(':display_order', $order);
+            $stmt->bindParam(':is_active', $isActive);
             $stmt->execute();
             
-            if ($stmt->fetchColumn() > 0) {
-                // Update existing banner
-                $stmt = $conn->prepare("UPDATE team_banners 
-                                     SET title = :title, 
-                                         breadcrumb_text = :breadcrumb_text,
-                                         banner_image = :banner_image 
-                                     WHERE page_slug = :slug");
-            } else {
-                // Insert new banner
-                $stmt = $conn->prepare("INSERT INTO team_banners 
-                                     (page_slug, title, breadcrumb_text, banner_image) 
-                                     VALUES (:slug, :title, :breadcrumb_text, :banner_image)");
-            }
-            
-            $stmt->bindParam(':slug', $pageSlug);
-            $stmt->bindParam(':title', $title);
-            $stmt->bindParam(':breadcrumb_text', $breadcrumbText);
-            $stmt->bindParam(':banner_image', $imagePath);
-            $stmt->execute();
-            
-            $message = "Banner updated successfully!";
+            $conn->commit();
+            $message = "Team member added successfully!";
             $messageType = "success";
+            $activeTab = 'members';
         } catch (Exception $e) {
-            $message = "Error updating banner: " . $e->getMessage();
+            $conn->rollBack();
+            $message = "Error adding team member: " . $e->getMessage();
             $messageType = "error";
         }
     }
     
-    // Update team members
-    if (isset($_POST['update_members'])) {
+    // Update existing team member
+    elseif (isset($_POST['update_member'])) {
         try {
             $conn->beginTransaction();
             
-            // Process each team member
-            if (isset($_POST['member_ids']) && is_array($_POST['member_ids'])) {
-                $memberIds = $_POST['member_ids'];
-                $memberNames = $_POST['member_names'];
-                $memberPositions = $_POST['member_positions'];
-                $memberOrders = $_POST['member_orders'];
-                $memberActives = isset($_POST['member_actives']) ? $_POST['member_actives'] : [];
-                $memberImagePaths = $_POST['member_image_paths'];
-                
-                // Process each member
-                for ($i = 0; $i < count($memberIds); $i++) {
-                    $id = (int)$memberIds[$i];
-                    $name = trim($memberNames[$i]);
-                    $position = trim($memberPositions[$i]);
-                    $order = (int)$memberOrders[$i];
-                    $isActive = in_array($id, $memberActives) ? 1 : 0;
-                    $imagePath = $memberImagePaths[$i];
-                    
-                    // Handle image upload if provided
-                    if (!empty($_FILES['member_images']['name'][$i])) {
-                        // Create a temporary superglobal entry for the handleImageUpload function
-                        $_FILES['temp_image'] = [
-                            'name' => $_FILES['member_images']['name'][$i],
-                            'type' => $_FILES['member_images']['type'][$i],
-                            'tmp_name' => $_FILES['member_images']['tmp_name'][$i],
-                            'error' => $_FILES['member_images']['error'][$i],
-                            'size' => $_FILES['member_images']['size'][$i],
-                        ];
-                        
-                        $uploadResult = handleImageUpload('temp_image', $imagePath);
-                        if (!$uploadResult['success']) {
-                            throw new Exception("Error uploading image for member #" . ($i + 1) . ": " . $uploadResult['message']);
-                        }
-                        $imagePath = $uploadResult['path'];
-                    }
-                    
-                    // Update the member
-                    $stmt = $conn->prepare("UPDATE team_members
-                                       SET name = :name, 
-                                           position = :position, 
-                                           display_order = :order, 
-                                           is_active = :isActive,
-                                           image_path = :imagePath
-                                       WHERE id = :id");
-                    
-                    $stmt->bindParam(':name', $name);
-                    $stmt->bindParam(':position', $position);
-                    $stmt->bindParam(':order', $order);
-                    $stmt->bindParam(':isActive', $isActive);
-                    $stmt->bindParam(':imagePath', $imagePath);
-                    $stmt->bindParam(':id', $id);
-                    $stmt->execute();
-                }
-            }
+            $id = (int)$_POST['member_id'];
+            $name = $_POST['name'] ?? '';
+            $position = $_POST['position'] ?? '';
+            $order = (int)$_POST['display_order'] ?? 0;
+            $isActive = isset($_POST['is_active']) ? 1 : 0;
+            $currentImagePath = $_POST['current_image_path'] ?? '';
             
-            // Add new member if provided
-            if (!empty($_POST['new_member_name']) && !empty($_POST['new_member_position'])) {
-                $newName = trim($_POST['new_member_name']);
-                $newPosition = trim($_POST['new_member_position']);
-                $newOrder = (int)$_POST['new_member_order'];
-                $imagePath = '';
-                
-                // Handle image upload if provided
-                if (!empty($_FILES['new_member_image']['name'])) {
-                    $uploadResult = handleImageUpload('new_member_image');
-                    if (!$uploadResult['success']) {
-                        throw new Exception("Error uploading image for new member: " . $uploadResult['message']);
-                    }
-                    $imagePath = $uploadResult['path'];
-                }
-                
-                // Insert new member
-                $stmt = $conn->prepare("INSERT INTO team_members
-                                   (name, position, display_order, is_active, image_path)
-                                   VALUES (:name, :position, :order, 1, :imagePath)");
-                
-                $stmt->bindParam(':name', $newName);
-                $stmt->bindParam(':position', $newPosition);
-                $stmt->bindParam(':order', $newOrder);
-                $stmt->bindParam(':imagePath', $imagePath);
-                $stmt->execute();
+            // Handle image upload
+            $uploadResult = handleImageUpload('image_file', $uploadDirectory, $currentImagePath);
+            if (!$uploadResult['success']) {
+                throw new Exception($uploadResult['message']);
             }
+            $imagePath = $uploadResult['path'];
+            
+            $stmt = $conn->prepare("UPDATE team_members 
+                                 SET name = :name, 
+                                     position = :position, 
+                                     image_path = :image_path, 
+                                     display_order = :display_order, 
+                                     is_active = :is_active 
+                                 WHERE id = :id");
+            
+            $stmt->bindParam(':name', $name);
+            $stmt->bindParam(':position', $position);
+            $stmt->bindParam(':image_path', $imagePath);
+            $stmt->bindParam(':display_order', $order);
+            $stmt->bindParam(':is_active', $isActive);
+            $stmt->bindParam(':id', $id);
+            $stmt->execute();
             
             $conn->commit();
-            $message = "Team members updated successfully!";
+            $message = "Team member updated successfully!";
             $messageType = "success";
+            $activeTab = 'members';
+            $editMemberId = $id; // Keep editing the same member
         } catch (Exception $e) {
             $conn->rollBack();
-            $message = "Error updating team members: " . $e->getMessage();
+            $message = "Error updating team member: " . $e->getMessage();
             $messageType = "error";
         }
     }
     
-    // Delete team member - separate form submission
-    if (isset($_POST['delete_member'])) {
+    // Delete team member
+    elseif (isset($_POST['delete_member'])) {
         try {
+            $conn->beginTransaction();
+            
             $id = (int)$_POST['member_id'];
+            $currentImagePath = $_POST['current_image_path'] ?? '';
             
-            // Get the current image path
-            $stmt = $conn->prepare("SELECT image_path FROM team_members WHERE id = :id");
-            $stmt->bindParam(':id', $id);
-            $stmt->execute();
-            $member = $stmt->fetch();
-            
-            // Delete the member
+            // Delete the team member
             $stmt = $conn->prepare("DELETE FROM team_members WHERE id = :id");
             $stmt->bindParam(':id', $id);
             $stmt->execute();
             
-            // Delete the image file if it exists and is in the uploads directory
-            if (!empty($member['image_path']) && strpos($member['image_path'], 'assets/uploads/team/') === 0) {
-                $filePath = '../../../' . $member['image_path'];
-                if (file_exists($filePath)) {
-                    unlink($filePath);
-                }
+            // Delete image file if it's in our uploads directory
+            if ($currentImagePath && strpos($currentImagePath, 'assets/images/uploads/team/') !== false && file_exists('../../../' . $currentImagePath)) {
+                @unlink('../../../' . $currentImagePath);
             }
             
+            $conn->commit();
             $message = "Team member deleted successfully!";
             $messageType = "success";
+            $activeTab = 'members';
+            $editMemberId = 0; // Clear edit mode
         } catch (Exception $e) {
+            $conn->rollBack();
             $message = "Error deleting team member: " . $e->getMessage();
+            $messageType = "error";
+        }
+    }
+    
+    // Reorder team members
+    elseif (isset($_POST['reorder_members'])) {
+        try {
+            $conn->beginTransaction();
+            
+            $memberIds = $_POST['member_ids'] ?? [];
+            $memberOrders = $_POST['member_orders'] ?? [];
+            
+            if (count($memberIds) === count($memberOrders)) {
+                for ($i = 0; $i < count($memberIds); $i++) {
+                    $id = (int)$memberIds[$i];
+                    $order = (int)$memberOrders[$i];
+                    
+                    $stmt = $conn->prepare("UPDATE team_members SET display_order = :order WHERE id = :id");
+                    $stmt->bindParam(':order', $order);
+                    $stmt->bindParam(':id', $id);
+                    $stmt->execute();
+                }
+                
+                $conn->commit();
+                $message = "Team member order updated successfully!";
+                $messageType = "success";
+                $activeTab = 'members';
+            } else {
+                throw new Exception("Invalid reorder data");
+            }
+        } catch (Exception $e) {
+            $conn->rollBack();
+            $message = "Error reordering team members: " . $e->getMessage();
             $messageType = "error";
         }
     }
 }
 
-// Fetch team members
+// Fetch data
+// Page settings
+$pageSettings = [];
+try {
+    $stmt = $conn->query("SELECT * FROM team_page_settings WHERE id = 1 LIMIT 1");
+    if ($stmt->rowCount() > 0) {
+        $pageSettings = $stmt->fetch();
+    }
+} catch(PDOException $e) {
+    // Handle error silently
+}
+
+// Team members
 $teamMembers = [];
 try {
     $stmt = $conn->query("SELECT * FROM team_members ORDER BY display_order ASC");
     $teamMembers = $stmt->fetchAll();
 } catch(PDOException $e) {
-    $message = "Error fetching team members: " . $e->getMessage();
-    $messageType = "error";
+    // Handle error silently
 }
 
-// Fetch banner data
-$bannerData = [];
-try {
-    $stmt = $conn->prepare("SELECT * FROM team_banners WHERE page_slug = :slug LIMIT 1");
-    $pageSlug = 'team';
-    $stmt->bindParam(':slug', $pageSlug);
-    $stmt->execute();
-    $bannerData = $stmt->fetch();
-    
-    // If no banner found, set default values
-    if (!$bannerData) {
-        $bannerData = [
-            'title' => 'Tim',
-            'breadcrumb_text' => 'Tim',
-            'banner_image' => 'assets/images/shape/inner-shape.png'
-        ];
+// Fetch specific member for editing
+$editMember = null;
+if ($editMemberId > 0) {
+    try {
+        $stmt = $conn->prepare("SELECT * FROM team_members WHERE id = :id");
+        $stmt->bindParam(':id', $editMemberId);
+        $stmt->execute();
+        
+        if ($stmt->rowCount() > 0) {
+            $editMember = $stmt->fetch();
+            $activeTab = 'members';
+        }
+    } catch(PDOException $e) {
+        // Handle error silently
     }
-} catch(PDOException $e) {
-    $message = "Error fetching banner data: " . $e->getMessage();
-    $messageType = "error";
+}
+
+// Get next display order
+$nextOrder = 1;
+if (!empty($teamMembers)) {
+    $maxOrder = 0;
+    foreach ($teamMembers as $member) {
+        if ((int)$member['display_order'] > $maxOrder) {
+            $maxOrder = (int)$member['display_order'];
+        }
+    }
+    $nextOrder = $maxOrder + 1;
 }
 ?>
 
@@ -315,10 +414,10 @@ try {
         
         <div class="flex-1 lg:ml-64">
             <div class="bg-white p-4 shadow-sm flex justify-between items-center">
-                <h1 class="text-xl font-semibold text-gray-800">Edit Team Page (Fixed)</h1>
+                <h1 class="text-xl font-semibold text-gray-800">Edit Team Page</h1>
                 <div class="flex items-center space-x-4">
                     <a href="/team" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center">
-                        <i class="bx bx-link-external mr-1"></i> View Team Page
+                        <i class="bx bx-link-external mr-1"></i> View Page
                     </a>
                     <span class="text-gray-600">Welcome, <?php echo htmlspecialchars($currentUsername); ?></span>
                 </div>
@@ -333,306 +432,405 @@ try {
                 </div>
                 <?php endif; ?>
                 
-                <!-- Banner Section -->
-                <div class="bg-white rounded-lg shadow-sm overflow-hidden mb-6">
-                    <div class="p-6 border-b border-gray-200">
-                        <h2 class="text-lg font-semibold text-gray-800">Banner Section</h2>
-                        <p class="text-sm text-gray-500 mt-1">Edit the banner section at the top of the team page</p>
-                    </div>
-                    <div class="p-6">
-                        <form method="POST" action="" enctype="multipart/form-data">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                                <div>
-                                    <label for="banner_title" class="block text-sm font-medium text-gray-700 mb-1">Banner Title</label>
-                                    <input type="text" id="banner_title" name="banner_title" 
-                                        value="<?php echo htmlspecialchars($bannerData['title']); ?>" 
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                <!-- Tab Navigation -->
+                <div class="mb-6 border-b border-gray-200">
+                    <nav class="flex flex-wrap space-x-8">
+                        <a href="?tab=members" class="py-4 px-1 border-b-2 font-medium text-sm leading-5 <?php echo $activeTab === 'members' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
+                            Team Members
+                        </a>
+                        <a href="?tab=general" class="py-4 px-1 border-b-2 font-medium text-sm leading-5 <?php echo $activeTab === 'general' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
+                            General Settings
+                        </a>
+                        <a href="?tab=banner" class="py-4 px-1 border-b-2 font-medium text-sm leading-5 <?php echo $activeTab === 'banner' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
+                            Banner Settings
+                        </a>
+                    </nav>
+                </div>
+                
+                <!-- Team Members Tab -->
+                <?php if ($activeTab === 'members'): ?>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Team Members List -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-lg font-semibold text-gray-800">Team Members</h2>
+                                <p class="text-sm text-gray-500 mt-1">Manage your team members</p>
+                            </div>
+                            
+                            <div class="p-6">
+                                <!-- Team Members Table -->
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Picture</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                                                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                            <?php if (empty($teamMembers)): ?>
+                                            <tr>
+                                                <td colspan="6" class="px-6 py-4 text-center text-sm text-gray-500">No team members found. Add your first team member.</td>
+                                            </tr>
+                                            <?php else: ?>
+                                                <?php foreach ($teamMembers as $member): ?>
+                                                <tr>
+                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                        <div class="flex-shrink-0 h-10 w-10">
+                                                            <?php if (!empty($member['image_path'])): ?>
+                                                            <img class="h-10 w-10 rounded-full object-cover" src="../../../<?php echo htmlspecialchars($member['image_path']); ?>" alt="<?php echo htmlspecialchars($member['name']); ?>">
+                                                            <?php else: ?>
+                                                            <div class="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                                                <i class="bx bx-user text-gray-400"></i>
+                                                            </div>
+                                                            <?php endif; ?>
+                                                        </div>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                        <div class="text-sm font-medium text-gray-900"><?php echo htmlspecialchars($member['name']); ?></div>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                        <div class="text-sm text-gray-500"><?php echo htmlspecialchars($member['position']); ?></div>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap">
+                                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full <?php echo $member['is_active'] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; ?>">
+                                                            <?php echo $member['is_active'] ? 'Active' : 'Inactive'; ?>
+                                                        </span>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                        <?php echo (int)$member['display_order']; ?>
+                                                    </td>
+                                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                        <a href="?edit=<?php echo $member['id']; ?>" class="text-blue-600 hover:text-blue-900 mr-3">Edit</a>
+                                                        <form method="POST" action="" class="inline-block">
+                                                            <input type="hidden" name="member_id" value="<?php echo $member['id']; ?>">
+                                                            <input type="hidden" name="current_image_path" value="<?php echo htmlspecialchars($member['image_path']); ?>">
+                                                            <button type="submit" name="delete_member" class="text-red-600 hover:text-red-900" onclick="return confirm('Are you sure you want to delete this team member?');">Delete</button>
+                                                        </form>
+                                                    </td>
+                                                </tr>
+                                                <?php endforeach; ?>
+                                            <?php endif; ?>
+                                        </tbody>
+                                    </table>
                                 </div>
-                                <div>
-                                    <label for="banner_breadcrumb" class="block text-sm font-medium text-gray-700 mb-1">Breadcrumb Text</label>
-                                    <input type="text" id="banner_breadcrumb" name="banner_breadcrumb" 
-                                        value="<?php echo htmlspecialchars($bannerData['breadcrumb_text']); ?>" 
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                
+                                <!-- Reorder Form -->
+                                <?php if (count($teamMembers) > 1): ?>
+                                <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                    <h3 class="text-sm font-medium text-gray-700 mb-3">Reorder Team Members</h3>
+                                    <form method="POST" action="">
+                                        <div class="space-y-3">
+                                            <?php foreach ($teamMembers as $index => $member): ?>
+                                            <div class="flex items-center space-x-3">
+                                                <input type="hidden" name="member_ids[]" value="<?php echo $member['id']; ?>">
+                                                <div class="flex-shrink-0">
+                                                    <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-gray-200">
+                                                        <?php echo $index + 1; ?>
+                                                    </span>
+                                                </div>
+                                                <div class="flex-1">
+                                                    <span class="text-sm font-medium text-gray-700"><?php echo htmlspecialchars($member['name']); ?></span>
+                                                </div>
+                                                <div class="w-20">
+                                                    <input type="number" name="member_orders[]" value="<?php echo (int)$member['display_order']; ?>" min="1" 
+                                                           class="block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none">
+                                                </div>
+                                            </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <div class="mt-4">
+                                            <button type="submit" name="reorder_members" 
+                                                class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                                Update Order
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Add/Edit Team Member Form -->
+                    <div class="lg:col-span-1">
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                            <div class="p-6 border-b border-gray-200">
+                                <h2 class="text-lg font-semibold text-gray-800">
+                                    <?php echo $editMember ? 'Edit Team Member' : 'Add New Team Member'; ?>
+                                </h2>
+                            </div>
+                            
+                            <div class="p-6">
+                                <form method="POST" action="" enctype="multipart/form-data">
+                                    <?php if ($editMember): ?>
+                                    <input type="hidden" name="member_id" value="<?php echo $editMember['id']; ?>">
+                                    <input type="hidden" name="current_image_path" value="<?php echo htmlspecialchars($editMember['image_path']); ?>">
+                                    <?php endif; ?>
+                                    
+                                    <div class="space-y-6">
+                                        <!-- Name Field -->
+                                        <div class="mb-5">
+                                            <label for="name" class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+                                            <input type="text" name="name" id="name" required
+                                                value="<?php echo htmlspecialchars($editMember['name'] ?? ''); ?>"
+                                                class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
+                                        </div>
+                                        
+                                        <!-- Position Field -->
+                                        <div class="mb-5">
+                                            <label for="position" class="block text-sm font-medium text-gray-700 mb-1">Position <span class="text-red-500">*</span></label>
+                                            <input type="text" name="position" id="position" required
+                                                value="<?php echo htmlspecialchars($editMember['position'] ?? ''); ?>"
+                                                class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
+                                        </div>
+                                        
+                                        <!-- Display Order Field -->
+                                        <div class="mb-5">
+                                            <label for="display_order" class="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                                            <input type="number" name="display_order" id="display_order" min="1"
+                                                value="<?php echo (int)($editMember['display_order'] ?? $nextOrder); ?>"
+                                                class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
+                                        </div>
+                                        
+                                        <!-- Is Active Field -->
+                                        <div class="mb-5">
+                                            <div class="flex items-start">
+                                                <div class="flex items-center h-5">
+                                                    <input type="checkbox" name="is_active" id="is_active"
+                                                        <?php echo (!$editMember || $editMember['is_active']) ? 'checked' : ''; ?>
+                                                        class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-300 focus:ring-opacity-50 focus:outline-none">
+                                                </div>
+                                                <div class="ml-3 text-sm">
+                                                    <label for="is_active" class="font-medium text-gray-700">Active</label>
+                                                    <p class="text-gray-500">Show this team member on the website</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Image Upload Field -->
+                                        <div class="mb-5">
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Photo</label>
+                                            
+                                            <?php if ($editMember && !empty($editMember['image_path'])): ?>
+                                            <div class="mt-2 mb-4">
+                                                <div class="relative rounded-lg overflow-hidden w-40 h-40 bg-gray-100">
+                                                    <img src="../../../<?php echo htmlspecialchars($editMember['image_path']); ?>" alt="<?php echo htmlspecialchars($editMember['name']); ?>" class="w-full h-full object-cover">
+                                                </div>
+                                                <p class="text-xs text-gray-500 mt-1">Current photo</p>
+                                            </div>
+                                            <?php endif; ?>
+                                            
+                                            <div class="mt-2">
+                                                <input type="file" name="image_file" id="image_file"
+                                                    class="block w-full text-sm text-gray-700 file:mr-4 file:py-2.5 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors duration-200">
+                                                <p class="text-xs text-gray-500 mt-1">Recommended: Square image (1:1 ratio), JPG or PNG.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-6 flex justify-end">
+                                        <?php if ($editMember): ?>
+                                        <a href="?tab=members" class="mr-3 inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                                            Cancel
+                                        </a>
+                                        <button type="submit" name="update_member" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                                            Update Member
+                                        </button>
+                                        <?php else: ?>
+                                        <button type="submit" name="add_member" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                                            Add Member
+                                        </button>
+                                        <?php endif; ?>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <!-- General Settings Tab -->
+                <?php if ($activeTab === 'general'): ?>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-800">General Page Settings</h2>
+                        <p class="text-sm text-gray-500 mt-1">Customize the team page content and SEO</p>
+                    </div>
+                    
+                    <div class="p-6">
+                        <form method="POST" action="">
+                            <div class="grid grid-cols-1 gap-6">
+                                <!-- Main Content Section -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <h3 class="text-md font-medium text-gray-800 mb-4">Main Content</h3>
+                                    
+                                    <!-- Page Title -->
+                                    <div class="mb-4">
+                                        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Page Title <span class="text-red-500">*</span></label>
+                                        <input type="text" name="title" id="title" required
+                                            value="<?php echo htmlspecialchars($pageSettings['title'] ?? 'Tim Kami'); ?>"
+                                            class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
+                                        <p class="text-xs text-gray-500 mt-1">Main heading displayed on the team page</p>
+                                    </div>
+                                    
+                                    <!-- Page Subtitle -->
+                                    <div class="mb-4">
+                                        <label for="subtitle" class="block text-sm font-medium text-gray-700 mb-1">Page Subtitle</label>
+                                        <input type="text" name="subtitle" id="subtitle"
+                                            value="<?php echo htmlspecialchars($pageSettings['subtitle'] ?? 'Tim'); ?>"
+                                            class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
+                                        <p class="text-xs text-gray-500 mt-1">Smaller text displayed above the main title</p>
+                                    </div>
+                                    
+                                    <!-- Page Description -->
+                                    <div>
+                                        <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Page Description</label>
+                                        <textarea name="description" id="description" rows="4"
+                                            class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400 resize-none"><?php echo htmlspecialchars($pageSettings['description'] ?? ''); ?></textarea>
+                                        <p class="text-xs text-gray-500 mt-1">Optional text displayed below the page title</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- SEO Section -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <h3 class="text-md font-medium text-gray-800 mb-4">SEO Settings</h3>
+                                    
+                                    <!-- SEO Title -->
+                                    <div class="mb-4">
+                                        <label for="seo_title" class="block text-sm font-medium text-gray-700 mb-1">SEO Title</label>
+                                        <input type="text" name="seo_title" id="seo_title"
+                                            value="<?php echo htmlspecialchars($pageSettings['seo_title'] ?? 'Tim | Akademi Merdeka'); ?>"
+                                            class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
+                                        <p class="text-xs text-gray-500 mt-1">Title shown in browser tab and search results</p>
+                                    </div>
+                                    
+                                    <!-- SEO Description -->
+                                    <div class="mb-4">
+                                        <label for="seo_description" class="block text-sm font-medium text-gray-700 mb-1">Meta Description</label>
+                                        <textarea name="seo_description" id="seo_description" rows="3"
+                                            class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400 resize-none"><?php echo htmlspecialchars($pageSettings['seo_description'] ?? ''); ?></textarea>
+                                        <p class="text-xs text-gray-500 mt-1">Short description for search engines (150-160 characters ideal)</p>
+                                    </div>
+                                    
+                                    <!-- SEO Keywords -->
+                                    <div>
+                                        <label for="seo_keywords" class="block text-sm font-medium text-gray-700 mb-1">Meta Keywords</label>
+                                        <input type="text" name="seo_keywords" id="seo_keywords"
+                                            value="<?php echo htmlspecialchars($pageSettings['seo_keywords'] ?? ''); ?>"
+                                            class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
+                                        <p class="text-xs text-gray-500 mt-1">Comma-separated keywords for search engines</p>
+                                    </div>
                                 </div>
                             </div>
                             
-                            <div class="mt-4">
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Banner Background Image</label>
+                            <div class="mt-6 flex justify-end">
+                                <button type="submit" name="update_general_settings" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                                    Save Settings
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <?php endif; ?>
+                
+                <!-- Banner Settings Tab -->
+                <?php if ($activeTab === 'banner'): ?>
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <div class="p-6 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-800">Banner Settings</h2>
+                        <p class="text-sm text-gray-500 mt-1">Customize the page banner and breadcrumb navigation</p>
+                    </div>
+                    
+                    <div class="p-6">
+                        <form method="POST" action="" enctype="multipart/form-data">
+                            <input type="hidden" name="current_banner_image" value="<?php echo htmlspecialchars($pageSettings['banner_image'] ?? 'assets/images/shape/inner-shape.png'); ?>">
+                            
+                            <div class="grid grid-cols-1 gap-6">
+                                <!-- Banner Title -->
+                                <div class="mb-4">
+                                    <label for="inner_title" class="block text-sm font-medium text-gray-700 mb-1">Banner Title <span class="text-red-500">*</span></label>
+                                    <input type="text" name="inner_title" id="inner_title" required
+                                        value="<?php echo htmlspecialchars($pageSettings['inner_title'] ?? 'Tim'); ?>"
+                                        class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
+                                    <p class="text-xs text-gray-500 mt-1">Main heading displayed on the banner</p>
+                                </div>
                                 
-                                <div class="flex items-start space-x-4">
-                                    <div class="w-1/3">
-                                        <?php $imagePath = $bannerData['banner_image']; ?>
-                                        <div class="mb-2 bg-gray-100 p-4 rounded-lg text-center">
-                                            <?php if (!empty($imagePath)): ?>
-                                            <img src="../../../<?php echo htmlspecialchars($imagePath); ?>" alt="Banner image" class="max-h-32 inline-block">
-                                            <?php else: ?>
-                                            <div class="text-gray-400 py-4">No image set</div>
-                                            <?php endif; ?>
-                                        </div>
-                                        <p class="text-xs text-gray-500 text-center">Current Banner Image</p>
-                                    </div>
+                                <!-- Breadcrumbs Section -->
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <h3 class="text-md font-medium text-gray-800 mb-4">Breadcrumb Navigation</h3>
                                     
-                                    <div class="w-2/3">
-                                        <div class="mb-3">
-                                            <label for="banner_image_file" class="block text-sm font-medium text-gray-700 mb-1">Upload New Image</label>
-                                            <input type="file" id="banner_image_file" name="banner_image_file" 
-                                                class="w-full block text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                            <p class="mt-1 text-xs text-gray-500">Recommended size: 1200×300px. Accepted formats: JPG, PNG, GIF, SVG, WEBP.</p>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label for="breadcrumb_parent" class="block text-sm font-medium text-gray-700 mb-1">Parent Link Text</label>
+                                            <input type="text" name="breadcrumb_parent" id="breadcrumb_parent"
+                                                value="<?php echo htmlspecialchars($pageSettings['breadcrumb_parent'] ?? 'Tentang'); ?>"
+                                                class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
                                         </div>
                                         
                                         <div>
-                                            <label for="banner_image" class="block text-sm font-medium text-gray-700 mb-1">Or Specify Image Path</label>
-                                            <input type="text" id="banner_image" name="banner_image" 
-                                                value="<?php echo htmlspecialchars($imagePath); ?>"
-                                                placeholder="assets/images/example.png"
-                                                class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                                            <p class="mt-1 text-xs text-gray-500">Path relative to website root. This will be used if no file is uploaded.</p>
+                                            <label for="breadcrumb_parent_link" class="block text-sm font-medium text-gray-700 mb-1">Parent Link URL</label>
+                                            <input type="text" name="breadcrumb_parent_link" id="breadcrumb_parent_link"
+                                                value="<?php echo htmlspecialchars($pageSettings['breadcrumb_parent_link'] ?? '/'); ?>"
+                                                class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-6 flex justify-end">
-                                <button type="submit" name="update_banner" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                    <i class="bx bx-save mr-2"></i> Save Banner Changes
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-                
-                <!-- Team Members Section -->
-                <div class="bg-white rounded-lg shadow-sm overflow-hidden">
-                    <div class="p-6 border-b border-gray-200">
-                        <h2 class="text-lg font-semibold text-gray-800">Team Members</h2>
-                        <p class="text-sm text-gray-500 mt-1">Manage team members displayed on the team page</p>
-                    </div>
-                    <div class="p-6">
-                        <!-- Team Members Update Form -->
-                        <form method="POST" action="" enctype="multipart/form-data">
-                            <!-- Current Team Members -->
-                            <div class="space-y-6">
-                                <?php if(empty($teamMembers)): ?>
-                                <div class="text-center text-sm text-gray-500 p-6 bg-gray-50 rounded-lg">
-                                    No team members found. Add team members below.
-                                </div>
-                                <?php else: ?>
-                                    <?php foreach($teamMembers as $index => $member): ?>
-                                    <div class="border border-gray-200 rounded-lg p-4">
-                                        <div class="flex items-center justify-between mb-4">
-                                            <h3 class="font-medium text-gray-800">Team Member #<?php echo $index + 1; ?></h3>
-                                            <div class="flex items-center">
-                                                <span class="mr-2 text-sm text-gray-600">Active</span>
-                                                <input type="hidden" name="member_ids[]" value="<?php echo $member['id']; ?>">
-                                                <input type="checkbox" name="member_actives[]" value="<?php echo $member['id']; ?>" 
-                                                       <?php echo $member['is_active'] ? 'checked' : ''; ?> 
-                                                       class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                                            <div class="md:col-span-1">
-                                                <div class="bg-gray-100 p-4 rounded-lg text-center mb-2">
-                                                    <?php if (!empty($member['image_path'])): ?>
-                                                    <img src="../../../<?php echo htmlspecialchars($member['image_path']); ?>" alt="Team Member" class="h-32 w-32 object-cover rounded-full inline-block">
-                                                    <input type="hidden" name="member_image_paths[]" value="<?php echo htmlspecialchars($member['image_path']); ?>">
-                                                    <?php else: ?>
-                                                    <div class="h-32 w-32 rounded-full bg-gray-300 inline-flex items-center justify-center">
-                                                        <i class="bx bx-user text-gray-400 text-3xl"></i>
-                                                    </div>
-                                                    <input type="hidden" name="member_image_paths[]" value="">
-                                                    <?php endif; ?>
-                                                </div>
-                                                
-                                                <input type="file" name="member_images[<?php echo $index; ?>]" 
-                                                       class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                                <p class="mt-1 text-xs text-gray-500 text-center">Upload new image (square, min 200x200px)</p>
-                                            </div>
-                                            
-                                            <div class="md:col-span-2">
-                                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                    <div>
-                                                        <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                                        <input type="text" name="member_names[]" value="<?php echo htmlspecialchars($member['name']); ?>" 
-                                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                    </div>
-                                                    <div>
-                                                        <label class="block text-sm font-medium text-gray-700 mb-1">Position</label>
-                                                        <input type="text" name="member_positions[]" value="<?php echo htmlspecialchars($member['position']); ?>" 
-                                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                    </div>
-                                                </div>
-                                                
-                                                <div>
-                                                    <label class="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
-                                                    <input type="number" name="member_orders[]" value="<?php echo (int)$member['display_order']; ?>" min="1" 
-                                                           class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                                </div>
-                                                
-                                                <div class="mt-4">
-                                                    <!-- Delete button is now NOT inside a separate form -->
-                                                    <a href="#" onclick="deleteTeamMember(<?php echo $member['id']; ?>); return false;" class="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                                                        <i class="bx bx-trash mr-1.5"></i> Delete
-                                                    </a>
-                                                </div>
-                                            </div>
-                                        </div>
+                                    
+                                    <div class="mt-4">
+                                        <label for="breadcrumb_current" class="block text-sm font-medium text-gray-700 mb-1">Current Page Text</label>
+                                        <input type="text" name="breadcrumb_current" id="breadcrumb_current"
+                                            value="<?php echo htmlspecialchars($pageSettings['breadcrumb_current'] ?? 'Tim'); ?>"
+                                            class="block w-full px-4 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-300 focus:outline-none transition-colors duration-200 hover:border-gray-400">
                                     </div>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <!-- Add New Team Member -->
-                            <div class="mt-8 p-4 border border-gray-200 rounded-lg bg-gray-50">
-                                <h3 class="text-base font-medium text-gray-900 mb-4">Add New Team Member</h3>
-                                
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div>
-                                        <label for="new_member_name" class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                                        <input type="text" id="new_member_name" name="new_member_name" placeholder="e.g. John Doe" 
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    </div>
-                                    <div>
-                                        <label for="new_member_position" class="block text-sm font-medium text-gray-700 mb-1">Position</label>
-                                        <input type="text" id="new_member_position" name="new_member_position" placeholder="e.g. CEO" 
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                    </div>
-                                    <div>
-                                        <label for="new_member_order" class="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
-                                        <input type="number" id="new_member_order" name="new_member_order" value="<?php echo count($teamMembers) + 1; ?>" min="1" 
-                                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    
+                                    <div class="mt-2">
+                                        <p class="text-sm text-gray-500">Preview: <span class="text-gray-700">Home > <?php echo htmlspecialchars($pageSettings['breadcrumb_parent'] ?? 'Tentang'); ?> > <?php echo htmlspecialchars($pageSettings['breadcrumb_current'] ?? 'Tim'); ?></span></p>
                                     </div>
                                 </div>
                                 
-                                <div class="mt-4">
-                                    <label for="new_member_image" class="block text-sm font-medium text-gray-700 mb-1">Member Image</label>
-                                    <input type="file" id="new_member_image" name="new_member_image" 
-                                           class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
-                                    <p class="mt-1 text-xs text-gray-500">Upload profile image (square, min 200x200px recommended)</p>
-                                </div>
-                            </div>
-                            
-                            <div class="mt-6 flex justify-end">
-                                <button type="submit" name="update_members" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                    <i class="bx bx-save mr-2"></i> Save Team Members
-                                </button>
-                            </div>
-                        </form>
-                        
-                        <!-- Separate form for deleting team members -->
-                        <form id="delete-form" method="POST" action="" style="display: none;">
-                            <input type="hidden" id="member_id" name="member_id" value="">
-                            <input type="hidden" name="delete_member" value="1">
-                        </form>
-                    </div>
-                </div>
-                
-                <!-- Preview Section -->
-                <div class="mt-8 bg-white rounded-lg shadow-sm overflow-hidden">
-                    <div class="p-6 border-b border-gray-200 flex justify-between items-center">
-                        <h2 class="text-lg font-semibold text-gray-800">Page Preview</h2>
-                        <a href="/team" target="_blank" class="text-blue-600 hover:text-blue-800 flex items-center">
-                            <i class="bx bx-link-external mr-1"></i> View Full Page
-                        </a>
-                    </div>
-                    <div class="p-6">
-                        <div class="bg-gray-100 p-4 rounded-lg mb-4">
-                            <h3 class="text-base font-medium text-gray-800 mb-2">Banner Section</h3>
-                            <div class="bg-white p-4 rounded border border-gray-200">
-                                <div class="text-center">
-                                    <h4 class="text-lg font-bold text-gray-800"><?php echo htmlspecialchars($bannerData['title']); ?></h4>
-                                    <div class="text-sm text-gray-600 mt-1">
-                                        <span>Home</span> &gt; <span>Tentang</span> &gt; <span><?php echo htmlspecialchars($bannerData['breadcrumb_text']); ?></span>
-                                    </div>
-                                </div>
-                                <div class="mt-2 text-center text-xs text-gray-500">
-                                    Banner Background: <?php echo htmlspecialchars($bannerData['banner_image']); ?>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="bg-gray-100 p-4 rounded-lg">
-                            <h3 class="text-base font-medium text-gray-800 mb-2">Team Members</h3>
-                            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mt-3">
-                                <?php foreach($teamMembers as $member): ?>
-                                <?php if($member['is_active']): ?>
-                                <div class="bg-white p-3 rounded border border-gray-200 text-center">
-                                    <?php if(!empty($member['image_path'])): ?>
-                                    <div class="w-16 h-16 mx-auto bg-gray-200 rounded-full overflow-hidden mb-2">
-                                        <img src="../../../<?php echo htmlspecialchars($member['image_path']); ?>" alt="<?php echo htmlspecialchars($member['name']); ?>" class="w-full h-full object-cover">
-                                    </div>
-                                    <?php else: ?>
-                                    <div class="w-16 h-16 mx-auto bg-gray-200 rounded-full flex items-center justify-center mb-2">
-                                        <i class="bx bx-user text-gray-400 text-xl"></i>
+                                <!-- Banner Image -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Banner Background Image</label>
+                                    
+                                    <?php if (!empty($pageSettings['banner_image'])): ?>
+                                    <div class="mt-2 mb-4">
+                                        <div class="relative rounded-lg overflow-hidden h-32 bg-gray-100">
+                                            <img src="../../../<?php echo htmlspecialchars($pageSettings['banner_image']); ?>" alt="Banner Background" class="w-full h-full object-contain">
+                                        </div>
+                                        <p class="text-xs text-gray-500 mt-1">Current banner image</p>
                                     </div>
                                     <?php endif; ?>
-                                    <h5 class="text-sm font-medium text-gray-800"><?php echo htmlspecialchars($member['name']); ?></h5>
-                                    <p class="text-xs text-gray-600"><?php echo htmlspecialchars($member['position']); ?></p>
+                                    
+                                    <div class="mt-2">
+                                        <input type="file" name="banner_image" id="banner_image"
+                                            class="block w-full text-sm text-gray-700 file:mr-4 file:py-2.5 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors duration-200">
+                                        <p class="text-xs text-gray-500 mt-1">Recommended: PNG or SVG with transparency.</p>
+                                    </div>
                                 </div>
-                                <?php endif; ?>
-                                <?php endforeach; ?>
                             </div>
-                        </div>
+                            
+                            <div class="mt-6 flex justify-end">
+                                <button type="submit" name="update_banner_settings" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200">
+                                    Save Banner Settings
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
+                <?php endif; ?>
                 
                 <!-- Footer -->
-                <div class="text-center text-gray-500 text-sm mt-8 pb-6">
+                <div class="text-center text-gray-500 text-sm mt-8">
                     <p>&copy; 2023 Akademi Merdeka Admin Dashboard. All rights reserved.</p>
                 </div>
             </div>
         </div>
     </div>
-    
-    <script>
-        // Function to handle team member deletion
-        function deleteTeamMember(memberId) {
-            if (confirm('Are you sure you want to delete this team member?')) {
-                document.getElementById('member_id').value = memberId;
-                document.getElementById('delete-form').submit();
-            }
-        }
-        
-        // Preview uploaded images before submission
-        document.addEventListener('DOMContentLoaded', function() {
-            // For banner image
-            const bannerImageInput = document.getElementById('banner_image_file');
-            if (bannerImageInput) {
-                bannerImageInput.addEventListener('change', function() {
-                    if (this.files && this.files[0]) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            const previewContainer = bannerImageInput.closest('.w-2/3').previousElementSibling.querySelector('div');
-                            previewContainer.innerHTML = `<img src="${e.target.result}" alt="Banner preview" class="max-h-32 inline-block">`;
-                        };
-                        reader.readAsDataURL(this.files[0]);
-                    }
-                });
-            }
-            
-            // For member images
-            const memberImageInputs = document.querySelectorAll('input[name^="member_images"]');
-            memberImageInputs.forEach(input => {
-                input.addEventListener('change', function() {
-                    if (this.files && this.files[0]) {
-                        const reader = new FileReader();
-                        reader.onload = function(e) {
-                            const previewContainer = input.closest('.md\\:col-span-1').querySelector('.bg-gray-100');
-                            previewContainer.innerHTML = `<img src="${e.target.result}" alt="Member preview" class="h-32 w-32 object-cover rounded-full inline-block">`;
-                        };
-                        reader.readAsDataURL(this.files[0]);
-                    }
-                });
-            });
-            
-            // For new member image
-            const newMemberImageInput = document.getElementById('new_member_image');
-            if (newMemberImageInput) {
-                newMemberImageInput.addEventListener('change', function() {
-                    // No preview for new member since there's no dedicated preview area
-                });
-            }
-        });
-    </script>
 </body>
 </html>

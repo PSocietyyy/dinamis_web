@@ -1,7 +1,17 @@
 <?php
-require_once('./config.php'); // Include database connection
+// Include database connection
+require_once('./config.php');
 
-// Fetch team members
+// Fetch team page settings
+$pageSettings = [];
+try {
+    $stmt = $conn->query("SELECT * FROM team_page_settings WHERE id = 1 LIMIT 1");
+    $pageSettings = $stmt->fetch();
+} catch(PDOException $e) {
+    // Handle error silently
+}
+
+// Fetch active team members
 $teamMembers = [];
 try {
     $stmt = $conn->query("SELECT * FROM team_members WHERE is_active = 1 ORDER BY display_order ASC");
@@ -9,40 +19,20 @@ try {
 } catch(PDOException $e) {
     // Handle error silently
 }
-
-// Fetch banner data
-$banner = [];
-try {
-    $stmt = $conn->prepare("SELECT * FROM team_banners WHERE page_slug = :slug LIMIT 1");
-    $pageSlug = 'team';
-    $stmt->bindParam(':slug', $pageSlug);
-    $stmt->execute();
-    $banner = $stmt->fetch();
-    
-    // Set defaults if no banner found
-    if (!$banner) {
-        $banner = [
-            'title' => 'Tim',
-            'breadcrumb_text' => 'Tim',
-            'banner_image' => 'assets/images/shape/inner-shape.png',
-            'team_title' => 'Tim Kami'
-        ];
-    }
-} catch(PDOException $e) {
-    // Handle error silently
-    $banner = [
-        'title' => 'Tim',
-        'breadcrumb_text' => 'Tim',
-        'banner_image' => 'assets/images/shape/inner-shape.png',
-        'team_title' => 'Tim Kami'
-    ];
-}
 ?>
+
 <!doctype html>
 <html lang="id">
-  <?php
-  include('components/head.php');
-  ?>
+    <?php
+    // Dynamic SEO metadata
+    $pageTitle = $pageSettings['seo_title'] ?? 'Tim | Akademi Merdeka';
+    $pageDescription = $pageSettings['seo_description'] ?? '';
+    $pageKeywords = $pageSettings['seo_keywords'] ?? '';
+    
+    // Pass SEO data to head component if it supports it
+    // Otherwise, we'll need to modify the head component or include meta tags directly here
+    include('components/head.php');
+    ?>
   <body>
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WC2H98R" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -58,36 +48,46 @@ try {
     <?php
     include('components/navbar.php')
     ?>
-    <div class="search-overlay">
-      <div class="d-table">
-        <div class="d-table-cell">
-          <div class="search-layer"></div>
-          <div class="search-layer"></div>
-          <div class="search-layer"></div>
-          <div class="search-close"><span class="search-close-line"></span><span class="search-close-line"></span></div>
-          <div class="search-form">
-            <form><input type="text" class="input-search" placeholder="Search here..."><button type="submit"><i class='bx bx-search'></i></button></form>
+      <div class="search-overlay">
+        <div class="d-table">
+          <div class="d-table-cell">
+            <div class="search-layer"></div>
+            <div class="search-layer"></div>
+            <div class="search-layer"></div>
+            <div class="search-close"><span class="search-close-line"></span><span class="search-close-line"></span></div>
+            <div class="search-form">
+              <form><input type="text" class="input-search" placeholder="Search here..."><button type="submit"><i class='bx bx-search'></i></button></form>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      
+    <!-- Dynamic Inner Banner -->
     <div class="inner-banner">
       <div class="container">
         <div class="inner-title text-center">
-          <h3><?php echo htmlspecialchars($banner['title']); ?></h3>
+          <h3><?php echo htmlspecialchars($pageSettings['inner_title'] ?? 'Tim'); ?></h3>
           <ul>
-            <li><a href="/">Tentang</a></li>
+            <li><a href="<?php echo htmlspecialchars($pageSettings['breadcrumb_parent_link'] ?? '/'); ?>"><?php echo htmlspecialchars($pageSettings['breadcrumb_parent'] ?? 'Tentang'); ?></a></li>
             <li><i class='bx bx-chevrons-right'></i></li>
-            <li><?php echo htmlspecialchars($banner['breadcrumb_text']); ?></li>
+            <li><?php echo htmlspecialchars($pageSettings['breadcrumb_current'] ?? 'Tim'); ?></li>
           </ul>
         </div>
       </div>
-      <div class="inner-shape"><img src="<?php echo htmlspecialchars($banner['banner_image']); ?>" alt="Banner Background"></div>
+      <div class="inner-shape">
+        <img src="<?php echo htmlspecialchars($pageSettings['banner_image'] ?? 'assets/images/shape/inner-shape.png'); ?>" alt="Inner Banner Shape" loading="lazy">
+      </div>
     </div>
+    
+    <!-- Dynamic Team Area -->
     <div class="team-area pt-100 pb-70">
       <div class="container">
-        <div class="section-title text-center"><span class="sp-color2">Tim</span>
-          <h2><?php echo htmlspecialchars($banner['team_title'] ?? 'Tim Kami'); ?></h2>
+        <div class="section-title text-center">
+          <span class="sp-color2"><?php echo htmlspecialchars($pageSettings['subtitle'] ?? 'Tim'); ?></span>
+          <h2><?php echo htmlspecialchars($pageSettings['title'] ?? 'Tim Kami'); ?></h2>
+          <?php if (!empty($pageSettings['description'])): ?>
+          <p><?php echo htmlspecialchars($pageSettings['description']); ?></p>
+          <?php endif; ?>
         </div>
         <div class="row pt-45">
           <?php foreach($teamMembers as $member): ?>
@@ -104,6 +104,7 @@ try {
         </div>
       </div>
     </div>
+    
     <?php
     include('components/footer.php')
     ?>

@@ -1,3 +1,54 @@
+<?php
+require_once('./config.php'); // Include database connection
+
+// Fetch FAQ banner data
+$banner = [];
+try {
+    $stmt = $conn->prepare("SELECT * FROM faq_banners WHERE page_slug = :slug LIMIT 1");
+    $pageSlug = 'faq';
+    $stmt->bindParam(':slug', $pageSlug);
+    $stmt->execute();
+    $banner = $stmt->fetch();
+    
+    // Set defaults if no banner found
+    if (!$banner) {
+        $banner = [
+            'title' => 'FAQ',
+            'breadcrumb_text' => 'FAQ',
+            'banner_image' => 'assets/images/shape/inner-shape.png',
+            'faq_title' => 'Frequently Asked Questions',
+            'faq_subtitle' => 'Beberapa pertanyaan yang sering disampaikan'
+        ];
+    }
+} catch(PDOException $e) {
+    // Handle error silently
+    $banner = [
+        'title' => 'FAQ',
+        'breadcrumb_text' => 'FAQ',
+        'banner_image' => 'assets/images/shape/inner-shape.png',
+        'faq_title' => 'Frequently Asked Questions',
+        'faq_subtitle' => 'Beberapa pertanyaan yang sering disampaikan'
+    ];
+}
+
+// Fetch FAQ items for left column
+$leftFaqs = [];
+try {
+    $stmt = $conn->query("SELECT * FROM faq_items WHERE is_active = 1 AND column_position = 1 ORDER BY display_order ASC");
+    $leftFaqs = $stmt->fetchAll();
+} catch(PDOException $e) {
+    // Handle error silently
+}
+
+// Fetch FAQ items for right column
+$rightFaqs = [];
+try {
+    $stmt = $conn->query("SELECT * FROM faq_items WHERE is_active = 1 AND column_position = 2 ORDER BY display_order ASC");
+    $rightFaqs = $stmt->fetchAll();
+} catch(PDOException $e) {
+    // Handle error silently
+}
+?>
 <!doctype html>
 <html lang="id">
   <?php
@@ -34,42 +85,38 @@
     <div class="inner-banner">
       <div class="container">
         <div class="inner-title text-center">
-          <h3>FAQ</h3>
+          <h3><?php echo htmlspecialchars($banner['title']); ?></h3>
           <ul>
             <li><a href="/">Tentang</a></li>
             <li><i class='bx bx-chevrons-right'></i></li>
-            <li>FAQ</li>
+            <li><?php echo htmlspecialchars($banner['breadcrumb_text']); ?></li>
           </ul>
         </div>
       </div>
-      <div class="inner-shape"><img src="assets/images/shape/inner-shape.png" alt="Images"></div>
+      <div class="inner-shape"><img src="<?php echo htmlspecialchars($banner['banner_image']); ?>" alt="Banner Background"></div>
     </div>
     <div class="faq-area pt-100 pb-70">
       <div class="container">
         <div class="section-title text-center">
-          <h2>Frequently Asked Questions</h2>
-          <p class="margin-auto">Beberapa pertanyaan yang sering disampaikan</p>
+          <h2><?php echo htmlspecialchars($banner['faq_title']); ?></h2>
+          <p class="margin-auto"><?php echo htmlspecialchars($banner['faq_subtitle']); ?></p>
         </div>
         <div class="row pt-45">
           <div class="col-lg-6">
             <div class="faq-content">
               <div class="faq-accordion">
                 <ul class="accordion">
-                  <li class="accordion-item"><a class="accordion-title" href="javascript:void(0)"><i class='bx bx-minus'></i> Mengapa harus Akademi Merdeka? </a>
-                    <div class="accordion-content show">
-                      <p> Karena Akademi Merdeka merupakan plaform digital yang lengkap dan mendetail dalam menyelesaikan persoalan Insan Akademi. </p>
+                  <?php foreach($leftFaqs as $index => $faq): ?>
+                  <li class="accordion-item">
+                    <a class="accordion-title" href="javascript:void(0)">
+                      <i class='bx <?php echo $index === 0 ? 'bx-minus' : 'bx-plus'; ?>'></i> 
+                      <?php echo htmlspecialchars($faq['question']); ?>
+                    </a>
+                    <div class="accordion-content <?php echo $index === 0 ? 'show' : ''; ?>">
+                      <p><?php echo htmlspecialchars($faq['answer']); ?></p>
                     </div>
                   </li>
-                  <li class="accordion-item"><a class="accordion-title" href="javascript:void(0)"><i class='bx bx-plus'></i> Apa saja layanan Akademi Merdeka? </a>
-                    <div class="accordion-content">
-                      <p> Berbagai macam layanan kami sediakan mulai dari pendampingan Jurnal, JAD, SERDOS, TKDA/TKBI, Pengolahan Statistika, dll. </p>
-                    </div>
-                  </li>
-                  <li class="accordion-item"><a class="accordion-title" href="javascript:void(0)"><i class='bx bx-plus'></i> Apa keunggulan dari Akademi Merdeka? </a>
-                    <div class="accordion-content">
-                      <p> Setiap Insan Akademisi akan didampingi satu supervisi yang expert dalam bidangnya, sehingga dapat fokus untuk membantu. </p>
-                    </div>
-                  </li>                  
+                  <?php endforeach; ?>
                 </ul>
               </div>
             </div>
@@ -78,21 +125,17 @@
             <div class="faq-content">
               <div class="faq-accordion">
                 <ul class="accordion">
-                  <li class="accordion-item"><a class="accordion-title" href="javascript:void(0)"><i class='bx bx-plus'></i> Bagaimana cara menghubungi Tim Kami? </a>
-                    <div class="accordion-content show">
-                      <p> Jika ada kendala dalam penyelesaian dapat menghubungi Whatsaap (087 735 426 107) atau email (info@akademimerdeka.com). </p>
+                  <?php foreach($rightFaqs as $index => $faq): ?>
+                  <li class="accordion-item">
+                    <a class="accordion-title" href="javascript:void(0)">
+                      <i class='bx <?php echo $index === 0 ? 'bx-minus' : 'bx-plus'; ?>'></i> 
+                      <?php echo htmlspecialchars($faq['question']); ?>
+                    </a>
+                    <div class="accordion-content <?php echo $index === 0 ? 'show' : ''; ?>">
+                      <p><?php echo htmlspecialchars($faq['answer']); ?></p>
                     </div>
                   </li>
-                  <li class="accordion-item"><a class="accordion-title" href="javascript:void(0)"><i class='bx bx-plus'></i> Bagaimana proses publikasi yang dilakukan oleh Kami? </a>
-                    <div class="accordion-content">
-                      <p> Naskah yang masuk langsung kami proses, kemudian dilakukan screening, layouting, cek plagiasi. </p>
-                    </div>
-                  </li>
-                  <li class="accordion-item"><a class="accordion-title" href="javascript:void(0)"><i class='bx bx-plus'></i> Apa boleh pembayaran dilakukan secara bertahap? </a>
-                    <div class="accordion-content">
-                      <p> Proses pembayaran dapat dilakukan bertahap, alur pembayarannya akan dilakukan setelah MoU diberikan dan disepakati. </p>
-                    </div>
-                  </li>                  
+                  <?php endforeach; ?>
                 </ul>
               </div>
             </div>

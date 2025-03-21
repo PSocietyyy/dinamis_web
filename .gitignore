@@ -1,6 +1,3 @@
 # Ignore config.php
 config.php
-
-
-# Ignore assets
-assets/*
+assets/images/uploads
