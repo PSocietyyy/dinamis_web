@@ -1,5 +1,5 @@
 <?php
-$host = 'localhost';
+$host = '127.0.0.1';
 $dbname = 'akademi_merdeka';
 $username = 'root';
 $password = '';

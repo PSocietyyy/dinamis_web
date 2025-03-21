@@ -275,8 +275,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif (isset($_POST['edit_feature'])) {
         try {
             $conn->beginTransaction();
-            
-            $featureId = (int)$_POST['feature_id'];
+        
             $featureName = trim($_POST['feature_name']);
             $featureCategoryId = (int)$_POST['feature_category_id'];
             $featurePath = trim($_POST['feature_path']);
@@ -345,20 +344,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $conn->beginTransaction();
             
-            $featureId = (int)$_POST['feature_id'];
-            
-            // Check if the feature is being used by any articles
-            $checkStmt = $conn->prepare("SELECT COUNT(*) FROM service_articles WHERE feature_id = :id");
-            $checkStmt->bindParam(':id', $featureId);
-            $checkStmt->execute();
-            
-            if ($checkStmt->fetchColumn() > 0) {
-                // Jika memiliki artikel terkait, hapus artikel terlebih dahulu
-                $delArticleStmt = $conn->prepare("DELETE FROM service_articles WHERE feature_id = :id");
-                $delArticleStmt->bindParam(':id', $featureId);
-                $delArticleStmt->execute();
-            }
-            
             $stmt = $conn->prepare("DELETE FROM service_features WHERE id = :id");
             $stmt->bindParam(':id', $featureId);
             $stmt->execute();
@@ -386,7 +371,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $conn->beginTransaction();
             
-            $featureId = !empty($_POST['feature_id']) ? (int)$_POST['feature_id'] : null;
             $title = trim($_POST['article_title']);
             $content = $_POST['article_content']; // HTML content from Quill
             
@@ -409,10 +393,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $stmt = $conn->prepare("INSERT INTO service_articles 
-                                  (feature_id, title, content, image_path) 
-                                  VALUES (:feature_id, :title, :content, :image_path)");
+                                  ( title, content, image_path) 
+                                  VALUES (:title, :content, :image_path)");
             
-            $stmt->bindParam(':feature_id', $featureId);
             $stmt->bindParam(':title', $title);
             $stmt->bindParam(':content', $content);
             $stmt->bindParam(':image_path', $imagePath);
@@ -442,7 +425,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $conn->beginTransaction();
             
             $articleId = (int)$_POST['article_id'];
-            $featureId = !empty($_POST['feature_id']) ? (int)$_POST['feature_id'] : null;
             $title = trim($_POST['article_title']);
             $content = $_POST['article_content']; // HTML content from Quill
             $oldImagePath = $_POST['old_article_image'];
@@ -466,14 +448,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $stmt = $conn->prepare("UPDATE service_articles 
-                                  SET feature_id = :feature_id, 
-                                      title = :title, 
+                                  SET title = :title, 
                                       content = :content, 
                                       image_path = :image_path,
                                       updated_at = CURRENT_TIMESTAMP
                                   WHERE id = :id");
             
-            $stmt->bindParam(':feature_id', $featureId);
             $stmt->bindParam(':title', $title);
             $stmt->bindParam(':content', $content);
             $stmt->bindParam(':image_path', $imagePath);
@@ -561,18 +541,18 @@ try {
     $messageType = "error";
 }
 
-// Fetch all articles with related feature names
-$articles = [];
-try {
-    $stmt = $conn->query("SELECT a.*, f.feature_name 
-                       FROM service_articles a
-                       LEFT JOIN service_features f ON a.feature_id = f.id
-                       ORDER BY a.created_at DESC");
-    $articles = $stmt->fetchAll();
-} catch(PDOException $e) {
-    $message = "Error mengambil data artikel: " . $e->getMessage();
-    $messageType = "error";
-}
+// // Fetch all articles with related feature names
+// $articles = [];
+// try {
+//     $stmt = $conn->query("SELECT a.*, f.feature_name 
+//                        FROM service_articles a
+//                        LEFT JOIN service_features f ON a.feature_id = f.id
+//                        ORDER BY a.created_at DESC");
+//     $articles = $stmt->fetchAll();
+// } catch(PDOException $e) {
+//     $message = "Error mengambil data artikel: " . $e->getMessage();
+//     $messageType = "error";
+// }
 
 // Fetch specific article for editing if id is provided
 $editArticle = null;
@@ -593,6 +573,9 @@ if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
         $messageType = "error";
     }
 }
+
+
+
 ?>
 
 <!doctype html>
@@ -656,7 +639,7 @@ if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
                         <a href="?tab=features" class="mr-8 py-4 px-1 border-b-2 font-medium text-sm <?php echo $activeTab == 'features' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
                             Detail Layanan
                         </a>
-                        <a href="?tab=articles" class="mr-8 py-4 px-1 border-b-2 font-medium text-sm <?php echo $activeTab == 'articles' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
+                        <a href="service_article.php" class="mr-8 py-4 px-1 border-b-2 font-medium text-sm <?php echo $activeTab == 'articles' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'; ?>">
                             Artikel Layanan
                         </a>
                     </nav>
@@ -934,7 +917,6 @@ if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
                     <!-- Modal Body dengan Scroll -->
                     <div class="p-6 max-h-[calc(100vh-16rem)] overflow-y-auto">
                         <form method="POST" action="?tab=features" enctype="multipart/form-data">
-                            <input type="hidden" id="edit_feature_id" name="feature_id">
                             <input type="hidden" id="old_image_path" name="old_image_path">
                             
                             <div class="mb-4">
@@ -1021,7 +1003,6 @@ if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
                         </div>
                         <p class="text-gray-700 mb-6">Apakah Anda yakin ingin menghapus layanan <span id="delete_feature_name" class="font-semibold"></span>?</p>
                         <form method="POST" action="?tab=features">
-                            <input type="hidden" id="delete_feature_id" name="feature_id">
                             <div class="flex justify-end space-x-3">
                                 <button type="button" onclick="closeDeleteFeatureModal()" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500">
                                     Batal
@@ -1073,9 +1054,6 @@ if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
                                             <?php foreach($articles as $article): ?>
                                             <tr>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo $article['id']; ?></td>
-                                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                                    <?php echo $article['feature_id'] ? htmlspecialchars($article['feature_name']) : '<span class="text-gray-400">Tidak terkait</span>'; ?>
-                                                </td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"><?php echo htmlspecialchars($article['title']); ?></td>
                                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                                     <?php if(!empty($article['image_path'])): ?>
@@ -1126,19 +1104,7 @@ if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
                                            value="<?php echo htmlspecialchars($editArticle['title']); ?>"
                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 </div>
-                                
-                                <div>
-                                    <label for="feature_id" class="block text-sm font-medium text-gray-700 mb-1">Terkait Layanan</label>
-                                    <select id="feature_id" name="feature_id" 
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                        <option value="">Tidak terkait dengan layanan spesifik</option>
-                                        <?php foreach($features as $feature): ?>
-                                        <option value="<?php echo $feature['id']; ?>" <?php echo ($editArticle['feature_id'] == $feature['id']) ? 'selected' : ''; ?>>
-                                            <?php echo htmlspecialchars($feature['feature_name']); ?>
-                                        </option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </div>
+
                             </div>
                             
                             <div class="mb-6">
@@ -1208,16 +1174,6 @@ if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     </div>
                                     
-                                    <div>
-                                        <label for="add_feature_id" class="block text-sm font-medium text-gray-700 mb-1">Terkait Layanan</label>
-                                        <select id="add_feature_id" name="feature_id" 
-                                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                            <option value="">Tidak terkait dengan layanan spesifik</option>
-                                            <?php foreach($features as $feature): ?>
-                                            <option value="<?php echo $feature['id']; ?>"><?php echo htmlspecialchars($feature['feature_name']); ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
                                 </div>
                                 
                                 <div class="mb-6">
@@ -1365,7 +1321,6 @@ if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
         }
         
         function openEditFeatureModal(id, name, categoryId, path, imagePath) {
-            document.getElementById('edit_feature_id').value = id;
             document.getElementById('edit_feature_name').value = name;
             document.getElementById('edit_feature_category_id').value = categoryId;
             document.getElementById('edit_feature_path').value = path;
@@ -1398,7 +1353,6 @@ if (isset($_GET['edit_article']) && !empty($_GET['edit_article'])) {
         }
         
         function openDeleteFeatureModal(id, name) {
-            document.getElementById('delete_feature_id').value = id;
             document.getElementById('delete_feature_name').textContent = name;
             document.getElementById('deleteFeatureModal').classList.remove('hidden');
         }

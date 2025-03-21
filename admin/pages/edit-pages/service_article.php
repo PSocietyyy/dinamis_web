@@ -1,4 +1,7 @@
 <?php
+// service_article.php
+    // Start the session
+    session_start();
 // Function to process HTML content from Quill editor
 function processArticleContent($content) {
     // Load the HTML into a DOMDocument for proper processing
@@ -285,8 +288,6 @@ function handleImageUpload($file) {
 </head>
 <body class="bg-gray-50 p-6">
     <?php
-    // Start the session
-    session_start();
 
     // Include database connection
     require_once('../../../config.php');
@@ -470,7 +471,10 @@ function handleImageUpload($file) {
 
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow">
         <div class="p-6 border-b border-gray-200">
-            <h1 class="text-2xl font-bold">Article Management</h1>
+            <div class="flex justify-between items-center text-center">
+                <a href="service.php" class="text-xl font-semibold text-blue-600 hover:text-blue-800 hover:underline">Back</a>
+                <h1 class="text-2xl font-bold w-full">Article Management</h1>
+            </div>
             <?php if(isset($message)): ?>
                 <div class="mt-4 p-4 <?php echo $messageType === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'; ?> rounded">
                     <?php echo $message; ?>
