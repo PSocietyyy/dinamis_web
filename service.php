@@ -11,12 +11,14 @@
     c.id AS category_id,
     c.categories_name AS category_name,
     f.feature_name,
-    f.feature_path,
-    f.feature_image_path
+    f.feature_image_path,
+    a.slug
   FROM 
       service_features f
   INNER JOIN 
       service_categories c ON c.id = f.feature_category_id
+  LEFT JOIN 
+      service_articles a ON a.feature_id = f.id 
   ORDER BY 
       c.categories_name ASC,
       f.feature_name ASC;
@@ -90,9 +92,9 @@
           <?php
           foreach($results as $result){ ?>
           <div class="col-lg-4 col-md-6">
-            <div class="services-item"><a href="<?= $result['feature_path'] ?>"><img src="<?= $result['feature_image_path']?>" alt="Images" loading="lazy"></a>
-              <div class="content"><i><img src="<?= $result['feature_image_path'] ?>" width="50" height="50" style="margin-top:-10px;"></i><span><a href="<?= $result['feature_path'] ?>" style="color: #330065;"><?= $result['category_name'] ?></a></span>
-                <h3><a href="<?= $result['feature_path'] ?>"><?= $result['feature_name'] ?></a></h3>
+            <div class="services-item"><a href="?s=<?= $result['slug'] ?? "#" ?>"><img src="<?= $result['feature_image_path']?>" alt="Images" loading="lazy"></a>
+              <div class="content"><i><img src="<?= $result['feature_image_path'] ?>" width="50" height="50" style="margin-top:-10px;"></i><span><a href="?s=<?= $result['slug'] ?? "#" ?>" style="color: #330065;"><?= $result['category_name'] ?></a></span>
+                <h3><a href="?s=<?= $result['slug'] ?? "#" ?>"><?= $result['feature_name'] ?></a></h3>
               </div>
             </div>
           </div>

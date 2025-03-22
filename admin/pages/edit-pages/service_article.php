@@ -204,6 +204,7 @@ function handleImageUpload($file) {
         'message' => "No file uploaded or file upload error."
     ];
 }
+
 ?>
 
 <!DOCTYPE html>
@@ -324,6 +325,7 @@ function handleImageUpload($file) {
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_article'])) {
         try {
             $title = trim($_POST['article_title']);
+            $feature_id = $_POST['feature_id'] ? $_POST['feature_id'] : null;
             $content = $_POST['article_content'];
             
             // Process the content to add custom styling to lists
@@ -343,11 +345,11 @@ function handleImageUpload($file) {
             }
             
             // SQL query with optional image field
-            $sql = "INSERT INTO service_articles (title, slug, content";
+            $sql = "INSERT INTO service_articles (title, feature_id, slug, content";
             if ($imagePath) {
                 $sql .= ", image_path";
             }
-            $sql .= ") VALUES (:title, :slug, :content";
+            $sql .= ") VALUES (:title, :feature_id, :slug, :content";
             if ($imagePath) {
                 $sql .= ", :image_path";
             }
@@ -355,6 +357,7 @@ function handleImageUpload($file) {
             
             $stmt = $conn->prepare($sql);
             $stmt->bindParam(':title', $title);
+            $stmt->bindParam(':feature_id', $feature_id);
             $stmt->bindParam(':slug', $slug);
             $stmt->bindParam(':content', $content);
             
@@ -457,23 +460,13 @@ function handleImageUpload($file) {
             $messageType = "error";
         }
     }
-
-    // Fetch all articles
-    $articles = [];
-    try {
-        $stmt = $conn->query("SELECT * FROM service_articles ORDER BY created_at DESC");
-        $articles = $stmt->fetchAll();
-    } catch(PDOException $e) {
-        $message = "Error fetching articles: " . $e->getMessage();
-        $messageType = "error";
-    }
     ?>
 
     <div class="max-w-4xl mx-auto bg-white rounded-lg shadow">
         <div class="p-6 border-b border-gray-200">
             <div class="flex justify-between items-center text-center">
-                <a href="service.php" class="text-xl font-semibold text-blue-600 hover:text-blue-800 hover:underline">Back</a>
-                <h1 class="text-2xl font-bold w-full">Article Management</h1>
+                <a href="service.php?tab=articles" class="text-xl font-semibold text-blue-600 hover:text-blue-800 hover:underline">Back</a>
+                <h1 class="text-2xl font-bold w-full">Article Editor</h1>
             </div>
             <?php if(isset($message)): ?>
                 <div class="mt-4 p-4 <?php echo $messageType === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'; ?> rounded">
@@ -482,60 +475,7 @@ function handleImageUpload($file) {
             <?php endif; ?>
         </div>
         
-        <?php if ($editArticle): ?>
-            <!-- Edit Article Form -->
-            <div class="p-6">
-                <h2 class="text-xl font-semibold mb-4">Edit Article</h2>
-                <form method="POST" action="" id="editArticleForm" enctype="multipart/form-data">
-                    <input type="hidden" name="article_id" value="<?php echo $editArticle['id']; ?>">
-                    <input type="hidden" name="old_image_path" value="<?php echo htmlspecialchars($editArticle['image_path']); ?>">
-                    
-                    <div class="mb-4">
-                        <label class="block text-gray-700 mb-2">Title</label>
-                        <input type="text" name="article_title" id="edit_article_title" required
-                               value="<?php echo htmlspecialchars($editArticle['title']); ?>"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md"
-                               oninput="updateSlugPreview(this.value, 'edit_slug_preview')">
-                        <div class="mt-1 flex flex-col">
-                            <span class="text-sm text-gray-500">Generated Slug:</span>
-                            <span id="edit_slug_preview" class="slug-preview"><?php echo htmlspecialchars($editArticle['slug'] ?? generateUniqueSlug($conn, $editArticle['title'], $editArticle['id'])); ?></span>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-gray-700 mb-2">Featured Image</label>
-                        
-                        <?php if(!empty($editArticle['image_path'])): ?>
-                        <div class="mb-3 p-2 border rounded-md bg-gray-50">
-                            <div class="flex flex-col items-center mb-2">
-                                <img src="../../../<?php echo htmlspecialchars($editArticle['image_path']); ?>" alt="Current image" class="image-preview mb-2">
-                                <p class="text-sm text-gray-600"><?php echo htmlspecialchars($editArticle['image_path']); ?></p>
-                            </div>
-                        </div>
-                        <?php endif; ?>
-                        
-                        <input type="file" name="article_image" 
-                               class="w-full px-3 py-2 border border-gray-300 rounded-md">
-                        <p class="mt-1 text-xs text-gray-500">Accepted formats: JPG, PNG, GIF, SVG, WEBP. Leave empty to keep current image.</p>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <label class="block text-gray-700 mb-2">Content</label>
-                        <div id="editor" class="h-64 border border-gray-300"><?php echo $editArticle['content']; ?></div>
-                        <input type="hidden" name="article_content" id="hiddenContent">
-                    </div>
-                    
-                    <div class="flex space-x-4">
-                        <a href="?" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition">
-                            Cancel
-                        </a>
-                        <button type="submit" name="edit_article" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-                            Update Article
-                        </button>
-                    </div>
-                </form>
-            </div>
-        <?php else: ?>
+        
             <!-- Add New Article Form -->
             <div class="p-6">
                 <h2 class="text-xl font-semibold mb-4">Add New Article</h2>
@@ -549,6 +489,23 @@ function handleImageUpload($file) {
                             <span class="text-sm text-gray-500">Generated Slug:</span>
                             <span id="slug_preview" class="slug-preview">article_slug</span>
                         </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 mb-2">Feature</label>
+                        <select name="feature_id" id="feature_id" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                            <option value="" selected>Select Feature</option>
+                            <?php
+                                $query = "SELECT id, feature_name FROM service_features";
+                                $stmt = $conn->prepare($query);
+                                $stmt->execute();
+
+                                // Fetch data dan tampilkan sebagai option
+                                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                    echo "<option value='{$row['id']}'>{$row['feature_name']}</option>";
+                                }
+                            ?>
+                        </select>
                     </div>
                     
                     <div class="mb-4">
@@ -569,129 +526,10 @@ function handleImageUpload($file) {
                     </button>
                 </form>
             </div>
-        <?php endif; ?>
         
-        <!-- Article List -->
-        <div class="p-6 border-t border-gray-200">
-            <h2 class="text-xl font-semibold mb-4">Article List</h2>
-            
-            <?php if(empty($articles)): ?>
-                <p class="text-gray-500">No articles found</p>
-            <?php else: ?>
-                <div class="space-y-4">
-                    <?php foreach($articles as $article): ?>
-                        <div class="border border-gray-200 rounded-md p-4 shadow-sm hover:shadow-md transition-shadow">
-                            <div class="flex justify-between">
-                                <div class="flex items-center space-x-4">
-                                    <?php if(!empty($article['image_path'])): ?>
-                                    <div class="flex-shrink-0">
-                                        <img src="../../../<?php echo htmlspecialchars($article['image_path']); ?>" alt="<?php echo htmlspecialchars($article['title']); ?>" class="h-16 w-16 object-cover rounded-md">
-                                    </div>
-                                    <?php endif; ?>
-                                    <div class="flex flex-col">
-                                        <h3 class="text-lg font-medium"><?php echo htmlspecialchars($article['title']); ?></h3>
-                                        <div class="flex flex-col space-y-1">
-                                            <p class="text-sm text-gray-500"><?php echo date('d M Y', strtotime($article['created_at'])); ?></p>
-                                            <code class="text-xs bg-gray-100 px-2 py-1 rounded-md"><?php echo htmlspecialchars($article['slug'] ?? ''); ?></code>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="flex space-x-2 items-center">
-                                    <button 
-                                        type="button"
-                                        onclick="openPreviewModal(<?php echo $article['id']; ?>, '<?php echo htmlspecialchars(addslashes($article['title'])); ?>', <?php echo htmlspecialchars(json_encode($article['content'])); ?>, '<?php echo !empty($article['image_path']) ? '../../../' . htmlspecialchars($article['image_path']) : ''; ?>', '<?php echo htmlspecialchars($article['slug'] ?? ''); ?>')"
-                                        class="px-3 py-1 bg-green-50 text-green-700 rounded-md hover:bg-green-100 transition"
-                                    >
-                                        <i class="bx bx-show"></i> Preview
-                                    </button>
-                                    <a href="?edit=<?php echo $article['id']; ?>" class="px-3 py-1 bg-blue-50 text-blue-700 rounded-md hover:bg-blue-100 transition">
-                                        <i class="bx bx-edit"></i> Edit
-                                    </a>
-                                    <button 
-                                        type="button"
-                                        onclick="openDeleteModal(<?php echo $article['id']; ?>, '<?php echo htmlspecialchars(addslashes($article['title'])); ?>')"
-                                        class="px-3 py-1 bg-red-50 text-red-700 rounded-md hover:bg-red-100 transition"
-                                    >
-                                        <i class="bx bx-trash"></i> Delete
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            <?php endif; ?>
-        </div>
+        
     </div>
     
-    <!-- Preview Modal -->
-    <div id="previewModal" class="modal fixed w-full h-full top-0 left-0 flex items-center justify-center hidden z-50">
-        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
-        
-        <div class="modal-container bg-white w-11/12 md:max-w-3xl mx-auto rounded-lg shadow-lg z-50 overflow-y-auto">
-            <!-- Modal Header -->
-            <div class="modal-header flex justify-between items-center p-5 border-b border-gray-200">
-                <div>
-                    <h2 id="previewTitle" class="text-xl font-bold"></h2>
-                    <code id="previewSlug" class="text-xs bg-gray-100 px-2 py-1 rounded-md"></code>
-                </div>
-                <button class="modal-close text-gray-500 hover:text-gray-700 focus:outline-none">
-                    <i class="bx bx-x text-3xl"></i>
-                </button>
-            </div>
-            
-            <!-- Modal Content -->
-            <div class="modal-content p-5">
-                <div id="previewImageContainer" class="mb-4 hidden">
-                    <img id="previewImage" src="" alt="Article image" class="max-w-full mx-auto rounded-md">
-                </div>
-                <div id="previewContent" class="prose max-w-none"></div>
-            </div>
-            
-            <!-- Modal Footer -->
-            <div class="modal-footer p-5 border-t border-gray-200">
-                <div class="flex justify-end">
-                    <button class="modal-close px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition">
-                        Close
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Delete Confirmation Modal -->
-    <div id="deleteModal" class="modal fixed w-full h-full top-0 left-0 flex items-center justify-center hidden z-50">
-        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
-        
-        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded-lg shadow-lg z-50">
-            <!-- Modal Header -->
-            <div class="modal-header flex justify-between items-center p-5 border-b border-gray-200">
-                <h2 class="text-xl font-bold text-red-600">Confirm Deletion</h2>
-                <button class="modal-close text-gray-500 hover:text-gray-700 focus:outline-none">
-                    <i class="bx bx-x text-3xl"></i>
-                </button>
-            </div>
-            
-            <!-- Modal Content -->
-            <div class="modal-content p-5">
-                <p>Are you sure you want to delete the article "<span id="deleteArticleTitle" class="font-semibold"></span>"?</p>
-                <p class="text-red-500 mt-2">This action cannot be undone.</p>
-            </div>
-            
-            <!-- Modal Footer -->
-            <div class="modal-footer p-5 border-t border-gray-200">
-                <form id="deleteForm" method="POST" action="">
-                    <input type="hidden" id="deleteArticleId" name="article_id">
-                    <div class="flex justify-end space-x-4">
-                        <button type="button" class="modal-close px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition">
-                            Cancel
-                        </button>
-                        <button type="submit" name="delete_article" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition">
-                            Delete
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
     
     <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
