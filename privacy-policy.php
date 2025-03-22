@@ -1,7 +1,35 @@
+<?php
+// Include database connection
+require_once('./config.php');
+
+// Fetch privacy policy page settings
+$pageSettings = [];
+try {
+    $stmt = $conn->query("SELECT * FROM privacy_policy_settings WHERE id = 1 LIMIT 1");
+    $pageSettings = $stmt->fetch();
+} catch(PDOException $e) {
+    // Handle error silently
+}
+
+// Fetch active privacy policy sections
+$privacyPolicies = [];
+try {
+    $stmt = $conn->query("SELECT * FROM privacy_policy WHERE is_active = 1 ORDER BY display_order ASC");
+    $privacyPolicies = $stmt->fetchAll();
+} catch(PDOException $e) {
+    // Handle error silently
+}
+?>
+
 <!doctype html>
-<html lang="zxx">
+<html lang="id">
   <?php
-  include('components/head.php')
+  // Dynamic SEO metadata
+  $pageTitle = $pageSettings['seo_title'] ?? 'Kebijakan Privasi | Akademi Merdeka';
+  $pageDescription = $pageSettings['seo_description'] ?? '';
+  $pageKeywords = $pageSettings['seo_keywords'] ?? '';
+  
+  include('components/head.php');
   ?>
   <body>
     <!-- Google Tag Manager (noscript) -->
@@ -34,38 +62,35 @@
     <div class="inner-banner">
       <div class="container">
         <div class="inner-title text-center">
-          <h3>Kebijakan Privasi</h3>
+          <h3><?php echo htmlspecialchars($pageSettings['inner_title'] ?? 'Kebijakan Privasi'); ?></h3>
           <ul>
-            <li><a href="/">Tentang</a></li>
+            <li><a href="<?php echo htmlspecialchars($pageSettings['breadcrumb_parent_link'] ?? '/'); ?>"><?php echo htmlspecialchars($pageSettings['breadcrumb_parent'] ?? 'Tentang'); ?></a></li>
             <li><i class='bx bx-chevrons-right'></i></li>
-            <li>Kebijakan Privasi</li>
+            <li><?php echo htmlspecialchars($pageSettings['breadcrumb_current'] ?? 'Kebijakan Privasi'); ?></li>
           </ul>
         </div>
       </div>
-      <div class="inner-shape"><img src="assets/images/shape/inner-shape.png" alt="Images"></div>
+      <div class="inner-shape"><img src="<?php echo htmlspecialchars($pageSettings['banner_image'] ?? 'assets/images/shape/inner-shape.png'); ?>" alt="Images"></div>
     </div>
     <div class="privacy-policy-area pt-100 pb-70">
       <div class="container">
-        <div class="section-title text-center"><span class="sp-color2">Kebijakan Privasi</span>
-          <h2>Akademi Merdeka</h2>
+        <div class="section-title text-center">
+          <span class="sp-color2"><?php echo htmlspecialchars($pageSettings['subtitle'] ?? 'Kebijakan Privasi'); ?></span>
+          <h2><?php echo htmlspecialchars($pageSettings['title'] ?? 'Akademi Merdeka'); ?></h2>
         </div>
         <div class="row pt-45">
           <div class="col-lg-12">
             <div class="single-content">
               <p style="text-align: justify;"> Kami berkomitmen untuk menjaga privasi pengunjung maupun pengguna website kami, kebijakan ini memberitahukan bagaimana kami mengumpulkan, menggunakan dan mengungkapkan data yang telah kami peroleh dari pengunjung website kami. </p>              
             </div>
+            
+            <?php foreach($privacyPolicies as $policy): ?>
             <div class="single-content">
-              <h3>PENGUMPULAN INFORMASI</h3>
-              <p style="text-align: justify;"> Pengumpulan data pengguna kami peroleh dari pendaftaran online saat pemesanan layanan. Kami juga dapat mengumpulkan data pengguna dari penggunaan “cookies” pada website pressrelease.co.id untuk melacak, siapa, dari mana dan keyword apa yang digunakan pengguna hingga sampai pada halaman situs web kami. </p>              
+              <h3><?php echo htmlspecialchars($policy['title']); ?></h3>
+              <p style="text-align: justify;"><?php echo $policy['content']; ?></p>
             </div>
-            <div class="single-content">
-              <h3>COOKIES</h3>
-              <p style="text-align: justify;"> Cookies adalah file yang merupakan serangkaian informasi berbentuk teks yang dikirim oleh server web dan disimpan oleh web browser komputer anda ataupun perangkat lainnya ketika Anda mengakses sebuah situs web. Cookies tersebut dikirim kembali ke situs asal setiap kali browser meminta halaman dari server. Cookies ini memungkinkan situs web kami untuk mengenali perangkat pengguna. Kami mungkin menggunakan informasi yang diambil dari cookies untuk meningkatkan pengalaman pengguna situs dan keperluan pemasaran. Kami juga mungkin menggunakan informasi tersebut untuk melakukan personalisasi situs kami untuk anda. </p>              
-            </div>
-            <div class="single-content">
-              <h3>PENGGUNAAN DATA</h3>
-              <p style="text-align: justify;"> Data yang terkumpul digunakan untuk komunikasi antar pengguna yang menggunakan layanan dari Keyword. Data pelanggan tidak akan kami publikasikan/ perjual belikan kepada siapapun.</p>              
-            </div>            
+            <?php endforeach; ?>
+            
           </div>
         </div>
       </div>

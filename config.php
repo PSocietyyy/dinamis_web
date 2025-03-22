@@ -1,8 +1,8 @@
 <?php
-$host = '127.0.0.1';
+$host = 'localhost';
 $dbname = 'akademi_merdeka';
 $username = 'root';
-$password = '';
+$password = 'ususgysjjsu7';
 
 try {
     $conn = new PDO("mysql:host=$host;dbname=$dbname", $username, $password);
